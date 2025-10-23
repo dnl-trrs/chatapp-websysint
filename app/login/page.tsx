@@ -21,10 +21,9 @@ export default function LoginPage() {
     try {
       await UnifiedAuthService.signIn(email, password);
       router.push("/chat");
-    } catch (error: any) {
+    } catch (err: any) {
       console.error(err);
-      const error = err as { message?: string };
-      setError(error.message || "Failed to log in. Please check your credentials.");
+      setError(err.message || "Failed to log in. Please check your credentials.");
     } finally {
       setLoading(false);
     }

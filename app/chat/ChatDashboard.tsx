@@ -119,6 +119,39 @@ const ChatDashboard: React.FC = () => {
   };
 
   const displayName = profile?.displayName || user?.displayName || 'User';
+  
+  // Temporary placeholders to fix undefined errors - these features have been removed
+  const servers: any[] = [];
+  const channels: any[] = [];
+  const selectedServer = '';
+  const setSelectedServer = (id: string) => {};
+  const selectedChannel = '';
+  const setSelectedChannel = (id: string) => {};
+  const conversationType = 'conversation';
+  const setConversationType = (type: string) => {};
+  const currentServer: any = null;
+  const serverName = '';
+  const setShowNewServerModal = (show: boolean) => {};
+  const setManagedServer = (server: any) => {};
+  const setShowServerManageModal = (show: boolean) => {};
+  const setShowCreateChannelModal = (show: boolean) => {};
+  const handleEditChannel = (channel: any) => {};
+  const getUserServers = async (uid: string) => [];
+  const setServers = (servers: any[]) => {};
+  const serverMembers: any[] = [];
+  const showNewServerModal = false;
+  const showChannelManageModal = false;
+  const managedChannel: any = null;
+  const showServerManageModal = false;
+  const managedServer: any = null;
+  const showCreateChannelModal = false;
+  const getChannels = async (serverId: string) => [];
+  const handleServerCreated = async () => {};
+  const handleUpdateChannel = async (name: string) => {};
+  const handleDeleteChannel = async () => {};
+  const handleUpdateServer = async (name: string) => {};
+  const handleDeleteServer = async () => {};
+  const leaveServer = async (serverId: string, userId: string) => {};
 
   // Subscribe to user's conversations with real-time updates
   useEffect(() => {
@@ -228,11 +261,11 @@ const ChatDashboard: React.FC = () => {
         scrollPositions.current.set(selectedConversation, scrollTop);
       }
     };
-  }, [conversationType, selectedConversation, selectedChannel]);
+  }, [selectedConversation]);
 
-  // Load messages based on context (channel or conversation)
+  // Load messages for selected conversation
   useEffect(() => {
-    if (conversationType === 'conversation' && selectedConversation) {
+    if (selectedConversation) {
       // Load conversation messages
       isInitialLoad.current = true;
       
@@ -256,7 +289,7 @@ const ChatDashboard: React.FC = () => {
               // Restore previous scroll position
               messagesContainerRef.current.scrollTop = savedPosition;
             } else {
-              // First time in channel, scroll to bottom
+              // First time in conversation, scroll to bottom
               messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
             }
             isInitialLoad.current = false;
@@ -271,55 +304,9 @@ const ChatDashboard: React.FC = () => {
         // Otherwise, no auto-scroll - user has full control
       });
       
-      return unsubscribe;
-    } else if (conversationType === 'channel' && selectedChannel) {
-      // Load channel messages
-      isInitialLoad.current = true;
-      
-      const messagesRef = collection(db, "channels", selectedChannel, "messages");
-      const q = query(messagesRef, orderBy("createdAt"));
-
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const newMessages: Message[] = snapshot.docs.map((doc) => {
-          const data = doc.data();
-          return {
-            id: doc.id,
-            text: data.text,
-            createdAt: data.createdAt || { seconds: Date.now() / 1000, nanoseconds: 0 },
-            uid: data.uid,
-            displayName: data.displayName,
-            photoURL: data.photoURL,
-          };
-        });
-        
-        setMessages(newMessages);
-        
-        // Only scroll on initial load or when user just sent a message
-        if (isInitialLoad.current) {
-          setTimeout(() => {
-            const savedPosition = scrollPositions.current.get(selectedChannel);
-            if (savedPosition !== undefined && messagesContainerRef.current) {
-              // Restore previous scroll position
-              messagesContainerRef.current.scrollTop = savedPosition;
-            } else {
-              // First time in channel, scroll to bottom
-              messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-            }
-            isInitialLoad.current = false;
-          }, 100);
-        } else if (justSentMessage.current) {
-          // Scroll to bottom only for user's own sent messages
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            justSentMessage.current = false;
-          }, 100);
-        }
-        // Otherwise, no auto-scroll - user has full control
-      });
-
       return unsubscribe;
     }
-  }, [conversationType, selectedConversation, selectedChannel]);
+  }, [selectedConversation]);
 
   // Track user profiles
   useEffect(() => {
@@ -404,12 +391,12 @@ const ChatDashboard: React.FC = () => {
   const handleTyping = async (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage(e.target.value);
     
-    // Only handle typing indicators for channels, not conversations
-    if (conversationType === 'channel' && selectedChannel && user) {
+    // Handle typing indicators for conversations
+    if (selectedConversation && user) {
       if (!isTyping && e.target.value.trim()) {
         setIsTyping(true);
         // Set typing status in database
-        await setTypingStatus(selectedChannel, user.uid, user.displayName || 'User', true).catch(() => {
+        await setTypingStatus(selectedConversation, user.uid, user.displayName || 'User', true).catch(() => {
           // Ignore errors
         });
       }
@@ -421,9 +408,11 @@ const ChatDashboard: React.FC = () => {
       typingTimeoutRef.current = setTimeout(async () => {
         setIsTyping(false);
         // Clear typing status in database
-        await setTypingStatus(selectedChannel, user.uid, user.displayName || 'User', false).catch(() => {
-          // Ignore errors
-        });
+        if (selectedConversation) {
+          await setTypingStatus(selectedConversation, user.uid, user.displayName || 'User', false).catch(() => {
+            // Ignore errors
+          });
+        }
       }, 2000);
     }
   };
@@ -453,7 +442,6 @@ const ChatDashboard: React.FC = () => {
       
       // Set the new conversation as selected
       setSelectedConversation(conversationId);
-      setConversationType('conversation');
       
       // Reset modal first
       setShowNewConversationModal(false);
@@ -492,86 +480,7 @@ const ChatDashboard: React.FC = () => {
     }
   };
 
-  const handleEditChannel = (channel: { id: string; name: string; type?: 'text' | 'voice' }) => {
-    setManagedChannel(channel);
-    setShowChannelManageModal(true);
-  };
-
-  const handleUpdateChannel = async (newName: string) => {
-    if (!managedChannel || !selectedServer) return;
-    const { updateChannel } = await import('@/lib/channelService');
-    await updateChannel(managedChannel.id, newName);
-    const updatedChannels = await getChannels(selectedServer);
-    // Ensure all channels have a type, defaulting to 'text' if undefined
-    const channelsWithType = updatedChannels.map(ch => ({
-      ...ch,
-      type: ch.type || 'text' as 'text' | 'voice'
-    }));
-    setChannels(channelsWithType);
-    setShowChannelManageModal(false);
-    setManagedChannel(null);
-  };
-
-  const handleDeleteChannel = async () => {
-    if (!managedChannel || !selectedServer) return;
-    const { deleteChannel } = await import('@/lib/channelService');
-    await deleteChannel(managedChannel.id);
-    const updatedChannels = await getChannels(selectedServer);
-    // Ensure all channels have a type, defaulting to 'text' if undefined
-    const channelsWithType = updatedChannels.map(ch => ({
-      ...ch,
-      type: ch.type || 'text' as 'text' | 'voice'
-    }));
-    setChannels(channelsWithType);
-    if (selectedChannel === managedChannel.id && channelsWithType.length > 0) {
-      setSelectedChannel(channelsWithType[0].id);
-    }
-    setShowChannelManageModal(false);
-    setManagedChannel(null);
-  };
-
-  const handleUpdateServer = async (newName: string) => {
-    if (!managedServer) return;
-    const { updateServer } = await import('@/lib/serverService');
-    await updateServer(managedServer.id, { name: newName });
-    // Reload servers
-    const userServers = await getUserServers(user?.uid || '');
-    setServers(userServers);
-    setShowServerManageModal(false);
-    setManagedServer(null);
-  };
-
-  const handleDeleteServer = async () => {
-    if (!managedServer || !user?.uid) return;
-    const { deleteServer } = await import('@/lib/serverService');
-    await deleteServer(managedServer.id, user.uid);
-    
-    // Reload servers
-    const userServers = await getUserServers(user.uid);
-    setServers(userServers);
-    
-    // If we deleted the currently selected server, show the "no server selected" screen
-    if (selectedServer === managedServer.id) {
-      if (setSelectedServer) {
-        setSelectedServer('');  // Clear server selection
-      }
-      setSelectedChannel('');    // Clear channel selection
-      setChannels([]);           // Clear channels list
-    }
-    
-    setShowServerManageModal(false);
-    setManagedServer(null);
-  };
-
-  const handleServerCreated = async () => {
-    if (!user?.uid) return;
-    try {
-      const userServers = await getUserServers(user.uid);
-      setServers(userServers);
-    } catch (error) {
-      console.error('Error refreshing servers:', error);
-    }
-  };
+  // Removed server and channel management functions - no longer needed
 
   const formatMessageTime = (timestamp: any) => {
     if (!timestamp) return "";
@@ -674,7 +583,6 @@ const ChatDashboard: React.FC = () => {
                         key={convo.id}
                         onClick={() => {
                           setSelectedConversation(convo.id);
-                          setConversationType('conversation');
                         }}
                         className={`group relative w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all cursor-pointer ${
                           selectedConversation === convo.id 
@@ -783,91 +691,6 @@ const ChatDashboard: React.FC = () => {
           </button>
         </div>
 
-        {/* Servers Tile */}
-        <div className="flex-1 glass rounded-xl p-3 flex flex-col animate-fade-in-up" style={{ animationDelay: '0.1s' }}>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-sm font-bold text-[#e4e4e7] flex items-center gap-2">
-              <span>🌐</span>
-              Servers
-            </h2>
-          </div>
-          
-          <div className="flex-1 overflow-y-auto space-y-2">
-            {servers.length === 0 ? (
-              <div className="text-center py-4">
-                <p className="text-xs text-[#71717a]">No servers yet</p>
-                <p className="text-xs text-[#71717a] mt-1">Create or join a server</p>
-              </div>
-            ) : (
-              servers.map(server => (
-                <div
-                  key={server.id}
-                  className={`w-full rounded-lg transition-all flex items-center justify-between group ${
-                    selectedServer === server.id 
-                      ? 'bg-[#818cf8]/20 border border-[#818cf8]/30' 
-                      : 'hover:bg-[#18181b] border border-transparent'
-                  }`}
-                >
-                  <button
-                    onClick={async () => {
-                      if (setSelectedServer) {
-                        setSelectedServer(server.id);
-                      }
-                      setConversationType('channel');
-                      setSelectedConversation(null);
-                      // Channels will be loaded by the useEffect
-                    }}
-                    className="flex-1 text-left p-2"
-                  >
-                    <div className="flex items-center gap-3">
-                      {server.icon ? (
-                        <Image
-                          src={server.icon}
-                          alt={server.name}
-                          width={32}
-                          height={32}
-                          className="rounded-lg"
-                        />
-                      ) : (
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white font-bold text-xs">
-                          {server.name.substring(0, 2).toUpperCase()}
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-sm text-[#e4e4e7] font-medium">{server.name}</p>
-                        <p className="text-xs text-[#71717a]">{server.members?.length || 0} members</p>
-                      </div>
-                    </div>
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      console.log('Setting managed server:', server);
-                      setManagedServer({
-                        id: server.id,
-                        name: server.name,
-                        ownerId: server.ownerId,
-                        members: server.members
-                      });
-                      setShowServerManageModal(true);
-                    }}
-                    className="opacity-0 group-hover:opacity-100 text-[#71717a] hover:text-[#e4e4e7] transition-all p-2 mr-2"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                      <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                    </svg>
-                  </button>
-                </div>
-              ))
-            )}
-          </div>
-          
-          <button
-            onClick={() => setShowNewServerModal(true)}
-            className="mt-4 w-full px-4 py-2 bg-[#27272a] hover:bg-[#18181b] text-[#e4e4e7] rounded-lg transition-all text-xs">
-            Create Server
-          </button>
-        </div>
 
       </div>
 
@@ -875,9 +698,9 @@ const ChatDashboard: React.FC = () => {
       <div className="flex-1 flex flex-col p-4 gap-4">
         {/* Main Chat Tile */}
         <div className="flex-1 glass rounded-xl flex flex-col overflow-hidden animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
-          {/* Header - Different for servers vs conversations */}
+          {/* Header for conversations */}
           <div className="px-6 py-4 border-b border-[#27272a]">
-            {conversationType === 'conversation' && selectedConversation ? (
+            {selectedConversation ? (
               // Conversation Header (DM or Group)
               (() => {
                 const conversation = conversations.find(c => c.id === selectedConversation);
@@ -930,16 +753,15 @@ const ChatDashboard: React.FC = () => {
                 );
               })()
             ) : (
-              // Server Header
+              // No conversation selected
               <h1 className="text-xl font-bold text-[#e4e4e7]">
-                {currentServer?.name || (selectedServer ? serverName : 'No Server Selected')}
+                Select a conversation
               </h1>
             )}
           </div>
 
           <div className="flex flex-1 overflow-hidden">
-            {/* Channel List - Only show for servers */}
-            {conversationType === 'channel' && (
+            {/* Removed channel list - only conversations now */}
               <div className="w-56 border-r border-[#27272a] p-4 overflow-y-auto bg-[#18181b]/30">
             {channels.length === 0 ? (
               <div className="flex flex-col items-center text-center pt-6">
@@ -1050,7 +872,6 @@ const ChatDashboard: React.FC = () => {
               </>
             )}
           </div>
-            )}
 
             {/* Chat/Content Area */}
             <div className="flex-1 flex flex-col">
@@ -1611,7 +1432,7 @@ const ChatDashboard: React.FC = () => {
         }}
       />
 
-      {/* Server Creation Modal */}
+      {/* Server Creation Modal - REMOVED
       {showNewServerModal && (
         <CreateServerModalEnhanced
           isOpen={showNewServerModal}
@@ -1624,7 +1445,7 @@ const ChatDashboard: React.FC = () => {
             }
           }}
         />
-      )}
+      )} */}
 
       {/* Profile Edit Modal */}
       <ProfileEditModal
@@ -1689,7 +1510,7 @@ const ChatDashboard: React.FC = () => {
         />
       )}
 
-      {/* Channel Creation Modal */}
+      {/* Channel Creation Modal - REMOVED
       {showCreateChannelModal && selectedServer && (
         <CreateChannelModal
           isOpen={showCreateChannelModal}
@@ -1707,9 +1528,9 @@ const ChatDashboard: React.FC = () => {
             setShowCreateChannelModal(false);
           }}
         />
-      )}
+      )} */}
 
-      {/* Channel Management Modal */}
+      {/* Channel Management Modal - REMOVED
       {showChannelManageModal && managedChannel && (
         <ChannelManageModal
           isOpen={showChannelManageModal}
@@ -1721,9 +1542,9 @@ const ChatDashboard: React.FC = () => {
           onUpdate={handleUpdateChannel}
           onDelete={handleDeleteChannel}
         />
-      )}
+      )} */}
 
-      {/* Server Management Modal */}
+      {/* Server Management Modal - REMOVED
       {showServerManageModal && managedServer && (
         <>
           {console.log('Rendering ServerManageModal:', { showServerManageModal, managedServer, isOwner: user?.uid === managedServer.ownerId })}
@@ -1755,7 +1576,7 @@ const ChatDashboard: React.FC = () => {
             currentUserId={user?.uid || ''}
           />
         </>
-      )}
+      )} */}
 
       {/* User Profile Card */}
       {showUserProfile && (

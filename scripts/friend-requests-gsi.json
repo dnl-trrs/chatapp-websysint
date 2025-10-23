@@ -1,0 +1,26 @@
+[
+    {
+        "IndexName": "FromUserIndex",
+        "KeySchema": [
+            {
+                "AttributeName": "fromUserId",
+                "KeyType": "HASH"
+            }
+        ],
+        "Projection": {
+            "ProjectionType": "ALL"
+        }
+    },
+    {
+        "IndexName": "ToUserIndex",
+        "KeySchema": [
+            {
+                "AttributeName": "toUserId",
+                "KeyType": "HASH"
+            }
+        ],
+        "Projection": {
+            "ProjectionType": "ALL"
+        }
+    }
+]
