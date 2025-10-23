@@ -1,40 +1,36 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
-import { onAuthStateChanged, type User } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { UnifiedAuthService, UnifiedAuthUser } from "@/lib/aws/unified-auth";
 import { createUserProfile } from "@/lib/userService";
 
 interface AuthContextType {
-  user: User | null;
+  user: UnifiedAuthUser | null;
   loading: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({ user: null, loading: true });
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UnifiedAuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     console.log('Setting up auth listener...');
-    const unsub = onAuthStateChanged(auth, async (firebaseUser) => {
-      console.log('Auth state changed:', firebaseUser ? 'User logged in' : 'User logged out');
-      setUser(firebaseUser);
+    const unsub = UnifiedAuthService.onAuthStateChanged(async (authUser) => {
+      console.log('Auth state changed:', authUser ? 'User logged in' : 'User logged out');
+      setUser(authUser);
       
-      // Create or update user profile in Firestore
-      if (firebaseUser) {
+      // Create or update user profile in database
+      if (authUser) {
         try {
-          await createUserProfile(firebaseUser);
+          await createUserProfile(authUser as any);
         } catch (error) {
           console.error('Error creating user profile:', error);
         }
       }
       
       console.log('Setting loading to false');
-      setLoading(false);
-    }, (error) => {
-      console.error('Auth state change error:', error);
       setLoading(false);
     });
     return () => unsub();

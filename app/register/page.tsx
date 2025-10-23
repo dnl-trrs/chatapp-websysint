@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
-import { auth, db, storage } from "@/lib/firebase";
+import { UnifiedAuthService } from "@/lib/aws/unified-auth";
+import { db, storage } from "@/lib/firebase";
 import { doc, setDoc, getDoc, query, collection, where, getDocs, serverTimestamp } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { useRouter } from "next/navigation";
@@ -79,7 +79,8 @@ export default function RegisterPage() {
     }
 
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      // Create user with unified auth service
+      const user = await UnifiedAuthService.signUp(email, password, displayName);
       
       let photoURL = "";
       
@@ -87,20 +88,18 @@ export default function RegisterPage() {
       if (profilePicture) {
         const timestamp = Date.now();
         const fileExtension = profilePicture.name.split('.').pop() || 'jpg';
-        const fileName = `profilePictures/${userCred.user.uid}/avatar_${timestamp}.${fileExtension}`;
+        const fileName = `profilePictures/${user.uid}/avatar_${timestamp}.${fileExtension}`;
         const storageRef = ref(storage, fileName);
         const snapshot = await uploadBytes(storageRef, profilePicture);
         photoURL = await getDownloadURL(snapshot.ref);
+        
+        // Update profile with photo URL
+        await UnifiedAuthService.updateProfile({ photoURL });
       }
-      
-      await updateProfile(userCred.user, { 
-        displayName: displayName,
-        photoURL: photoURL || null
-      });
 
       // Save user in Firestore with all fields
-      await setDoc(doc(db, "users", userCred.user.uid), {
-        uid: userCred.user.uid,
+      await setDoc(doc(db, "users", user.uid), {
+        uid: user.uid,
         email,
         displayName,
         username: username.toLowerCase(),

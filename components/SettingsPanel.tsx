@@ -4,8 +4,7 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { auth } from '@/lib/firebase';
-import { signOut } from 'firebase/auth';
+import { UnifiedAuthService } from '@/lib/aws/unified-auth';
 import { updateUserProfile } from '@/lib/userService';
 import { db } from '@/lib/firebase';
 import { query, collection, where, getDocs } from 'firebase/firestore';
@@ -86,7 +85,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, onEditPr
       'Are you sure you want to log out?',
       async () => {
         try {
-          await signOut(auth);
+          await UnifiedAuthService.signOut();
           showToast('Logged out successfully', 'success');
         } catch (error) {
           console.error('Error signing out:', error);

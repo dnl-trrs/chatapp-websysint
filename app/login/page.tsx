@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "@/lib/firebase";
+import { UnifiedAuthService } from "@/lib/aws/unified-auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -20,9 +19,9 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      await UnifiedAuthService.signIn(email, password);
       router.push("/chat");
-    } catch (err) {
+    } catch (error: any) {
       console.error(err);
       const error = err as { message?: string };
       setError(error.message || "Failed to log in. Please check your credentials.");
