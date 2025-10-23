@@ -1,0 +1,140 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Testing
+coverage/
+
+# Next.js build output
+.next/
+out/
+dist/
+
+# Production
+build/
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+lerna-debug.log*
+firebase-debug.log
+firestore-debug.log
+
+# Local env files
+.env
+.env*.local
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# IDE - VSCode
+.vscode/
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# IDE - IntelliJ/WebStorm
+.idea/
+*.iml
+
+# IDE - Sublime
+*.sublime-workspace
+*.sublime-project
+
+# Editor directories and files
+*.swp
+*.swo
+*~
+.project
+.classpath
+.c9/
+*.launch
+.settings/
+*.code-workspace
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Package manager lock files (optional - you may want to keep these)
+# Uncomment if you don't want to track lock files
+# package-lock.json
+# yarn.lock
+# pnpm-lock.yaml
+# bun.lockb
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+test
+
+# ESLint
+.eslintrc.json
+.eslintcache
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Firebase local emulator
+.firebase/
+firestore-debug.log
+firebase-debug.log
+ui-debug.log
+pubsub-debug.log
+
+# Test files
+test-*.html
+test-*.js
+test-*.ts
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Backup files
+*.backup
+*.bak
+*.orig
+*.updated
+
+# Personal notes and drafts
+NOTES.md
+TODO.md
+DRAFT*.md
+personal-*.md
+
+# CORS configuration (if using direct upload)
+cors.json
+setup-cors.js
+
+# Development artifacts
+*.map
+.sourcemaps/

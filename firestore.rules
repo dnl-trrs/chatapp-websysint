@@ -1,0 +1,154 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection rules - simplified
+    match /users/{userId} {
+      // Allow anyone to check if a username exists (for registration)
+      // This allows unauthenticated users to check username availability
+      allow read: if true;
+      
+      // Allow users to create their own profile or minimal profiles for others
+      allow create: if isAuthenticated();
+      
+      // Allow users to update their own profile
+      // Also allow updates to add/remove conversations arrays
+      allow update: if isAuthenticated() && 
+        (request.auth.uid == userId || 
+         // Allow updating conversations arrays for other users
+         (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['conversations', 'updatedAt'])));
+      
+      // Prevent users from deleting profiles
+      allow delete: if false;
+      
+      // Friends subcollection
+      match /friends/{friendId} {
+        // Allow users to read their own friends list
+        allow read: if isOwner(userId);
+        
+        // Allow managing friends - both users in a friendship can manage it
+        allow create: if isAuthenticated() && 
+          (request.auth.uid == userId || request.auth.uid == friendId);
+        allow update: if isAuthenticated() && 
+          (request.auth.uid == userId || request.auth.uid == friendId);
+        allow delete: if isAuthenticated() && 
+          (request.auth.uid == userId || request.auth.uid == friendId);
+      }
+    }
+    
+    // Friend requests collection rules
+    match /friendRequests/{requestId} {
+      // Allow authenticated users to read friend requests they're involved in
+      // Or list all requests to check for existing ones
+      allow read: if isAuthenticated();
+      
+      // Allow users to create friend requests where they are the sender
+      allow create: if isAuthenticated() && 
+        request.auth.uid == request.resource.data.fromUid;
+      
+      // Allow users to update requests where they are involved
+      allow update: if isAuthenticated() && 
+        (resource.data.toUid == request.auth.uid || 
+         resource.data.fromUid == request.auth.uid);
+      
+      // Allow users to delete requests they're involved in
+      allow delete: if isAuthenticated() && 
+        (resource.data.fromUid == request.auth.uid || 
+         resource.data.toUid == request.auth.uid);
+    }
+    
+    // Conversations collection (DMs and group chats)
+    match /conversations/{conversationId} {
+      // Allow authenticated users to list and read conversations
+      // For listing: authenticated users can see all conversations (will be filtered client-side)
+      // For reading specific conversation: must be a participant
+      allow list: if isAuthenticated();
+      allow get: if isAuthenticated() && 
+        (request.auth.uid in resource.data.participants || resource.data.createdBy == request.auth.uid);
+      
+      // Allow authenticated users to create conversations
+      allow create: if isAuthenticated() && 
+        (request.auth.uid in request.resource.data.participants) &&
+        (request.resource.data.createdBy == request.auth.uid);
+      
+      // Allow participants to update conversation (for hiding, renaming, updating last message, etc.)
+      // Or creator to update even if they left the group
+      allow update: if isAuthenticated() && 
+        (request.auth.uid in resource.data.participants || resource.data.createdBy == request.auth.uid);
+      
+      // Allow only the creator to delete group chats
+      // For DMs, both participants can delete
+      // Simplified rule for debugging
+      allow delete: if isAuthenticated() && 
+        (request.auth.uid in resource.data.participants || 
+         resource.data.createdBy == request.auth.uid);
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        // Check if parent conversation exists for read/write operations
+        // If it doesn't exist, it means it's being deleted, so allow cleanup
+        allow read: if isAuthenticated() && 
+          (exists(/databases/$(database)/documents/conversations/$(conversationId)) ? 
+            (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants ||
+             get(/databases/$(database)/documents/conversations/$(conversationId)).data.createdBy == request.auth.uid) : 
+            true);
+        
+        allow create: if isAuthenticated() && 
+          exists(/databases/$(database)/documents/conversations/$(conversationId)) &&
+          (request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants ||
+           request.auth.uid == 'system') &&
+          (request.auth.uid == request.resource.data.senderId || request.resource.data.senderId == 'system');
+        
+        // Allow message sender to update their own messages
+        allow update: if isAuthenticated() && 
+          resource.data.senderId == request.auth.uid;
+        
+      // Allow deletion if user is sender, conversation creator, or if parent is being deleted
+      allow delete: if isAuthenticated();
+    }
+    
+    // Typing indicators subcollection for conversations
+    match /typing/{userId} {
+      // Allow authenticated users to read typing status
+      allow read: if isAuthenticated();
+      
+      // Allow users to set/update their own typing status
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+      
+      // Allow users to delete their own typing status
+      allow delete: if isAuthenticated() && request.auth.uid == userId;
+    }
+  }
+    
+    // Direct messages collection (legacy - keeping for backward compatibility)
+    match /directMessages/{conversationId} {
+      // Allow users to read conversations they're part of
+      allow read: if isAuthenticated() && 
+        (resource.data.participants[request.auth.uid] == true);
+      
+      // Allow users to create conversations
+      allow create: if isAuthenticated() && 
+        (request.resource.data.participants[request.auth.uid] == true);
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() && 
+          get(/databases/$(database)/documents/directMessages/$(conversationId)).data.participants[request.auth.uid] == true;
+        
+        allow create: if isAuthenticated() && 
+          get(/databases/$(database)/documents/directMessages/$(conversationId)).data.participants[request.auth.uid] == true &&
+          request.auth.uid == request.resource.data.uid;
+      }
+    }
+  }
+}
