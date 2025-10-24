@@ -177,7 +177,7 @@ const ChatDashboard: React.FC = () => {
         
         // Load pending requests count
         const requests = await getPendingRequests(user.uid);
-        const incomingRequests = requests.filter(req => req.toUid === user.uid);
+        const incomingRequests = requests.filter(req => req.toUserId === user.uid);
         setPendingRequestsCount(incomingRequests.length);
       } catch (error) {
         console.error('Error loading friends data:', error);
@@ -1209,7 +1209,7 @@ const ChatDashboard: React.FC = () => {
           if (user?.uid) {
             try {
               const requests = await getPendingRequests(user.uid);
-              const incomingRequests = requests.filter(req => req.toUid === user.uid);
+              const incomingRequests = requests.filter(req => req.toUserId === user.uid);
               setPendingRequestsCount(incomingRequests.length);
             } catch (error) {
               console.error('Error refreshing pending requests:', error);

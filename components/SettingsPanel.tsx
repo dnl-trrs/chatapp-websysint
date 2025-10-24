@@ -345,7 +345,12 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, onEditPr
                       if (user?.uid && editDisplayName && (editUsername.length === 0 || (editUsername.length >= 3 && usernameAvailable !== false))) {
                         setIsUpdating(true);
                         try {
-                          await updateUserProfile(user.uid, {
+                          // Update profile via AWS auth (for Cognito attributes)
+                          await updateUserProfile({
+                            displayName: editDisplayName
+                          });
+                          // Update additional fields in DynamoDB
+                          await userService.updateUser(user.uid, {
                             displayName: editDisplayName,
                             username: editUsername.toLowerCase(),
                             bio: editBio

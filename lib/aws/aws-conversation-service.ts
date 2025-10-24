@@ -43,7 +43,7 @@ export const createOrGetDMConversation = async (
   try {
     // Check if DM already exists
     const userConversations = await conversationService.getUserConversations(userId1);
-    const existingDM = userConversations.find(conv => {
+    const existingDM = userConversations.find((conv: any) => {
       return conv.type === 'dm' && 
              conv.participants?.includes(userId2) && 
              conv.participants?.length === 2;
@@ -53,7 +53,7 @@ export const createOrGetDMConversation = async (
       // Unhide if hidden
       if (existingDM.hiddenBy?.includes(userId1)) {
         await conversationService.updateConversation(existingDM.conversationId, {
-          hiddenBy: existingDM.hiddenBy.filter(id => id !== userId1)
+          hiddenBy: existingDM.hiddenBy.filter((id: string) => id !== userId1)
         });
       }
       return existingDM.conversationId;
@@ -116,13 +116,13 @@ export const getUserConversations = async (
     
     let filtered = conversations;
     if (type && type !== 'all') {
-      filtered = conversations.filter(c => c.type === type);
+      filtered = conversations.filter((c: any) => c.type === type);
     }
 
     // Filter out hidden conversations
-    filtered = filtered.filter(c => !c.hiddenBy?.includes(userId));
+    filtered = filtered.filter((c: any) => !c.hiddenBy?.includes(userId));
 
-    return filtered.map(c => ({
+    return filtered.map((c: any) => ({
       id: c.conversationId,
       conversationId: c.conversationId,
       type: c.type,
@@ -178,7 +178,7 @@ export const getMessages = async (
 ): Promise<Message[]> => {
   try {
     const messages = await messageService.getMessages(conversationId, limit);
-    return messages.map(m => ({
+    return messages.map((m: any) => ({
       id: m.messageId,
       messageId: m.messageId,
       conversationId: m.conversationId,
@@ -254,7 +254,7 @@ export const removeParticipantFromGroup = async (
     }
 
     const newParticipants = (conversation.participants || []).filter(
-      p => p !== participantId
+      (p: string) => p !== participantId
     );
 
     await conversationService.updateConversation(conversationId, {
@@ -285,7 +285,7 @@ export const leaveGroupChat = async (
     }
 
     const newParticipants = (conversation.participants || []).filter(
-      p => p !== userId
+      (p: string) => p !== userId
     );
 
     await conversationService.updateConversation(conversationId, {
@@ -335,7 +335,7 @@ export const unhideConversation = async (
       throw new Error('Conversation not found');
     }
 
-    const hiddenBy = (conversation.hiddenBy || []).filter(id => id !== userId);
+    const hiddenBy = (conversation.hiddenBy || []).filter((id: string) => id !== userId);
 
     await conversationService.updateConversation(conversationId, {
       hiddenBy
@@ -359,7 +359,7 @@ export const getConversationWithDetails = async (
     // Get participant details
     const { userService } = await import('./dynamodb-client');
     const participantDetails = await Promise.all(
-      (conversation.participants || []).map(pId => userService.getUser(pId))
+      (conversation.participants || []).map((pId: string) => userService.getUser(pId))
     );
 
     return {
