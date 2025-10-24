@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { UnifiedAuthService } from "@/lib/aws/unified-auth";
+import { signInUser } from "@/lib/aws/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -19,10 +19,10 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      await UnifiedAuthService.signIn(email, password);
+      await signInUser(email, password);
       router.push("/chat");
     } catch (err: any) {
-      console.error(err);
+      console.error('Login error:', err);
       setError(err.message || "Failed to log in. Please check your credentials.");
     } finally {
       setLoading(false);

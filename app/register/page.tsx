@@ -1,10 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { UnifiedAuthService } from "@/lib/aws/unified-auth";
-import { db, storage } from "@/lib/firebase";
-import { doc, setDoc, getDoc, query, collection, where, getDocs, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { registerUser } from "@/lib/aws/auth";
+import { userService } from "@/lib/aws/dynamodb-client";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -31,11 +29,13 @@ export default function RegisterPage() {
     
     setCheckingUsername(true);
     try {
-      const q = query(collection(db, "users"), where("username", "==", usernameToCheck.toLowerCase()));
-      const querySnapshot = await getDocs(q);
-      setUsernameAvailable(querySnapshot.empty);
+      // Search for users with this username in DynamoDB
+      const users = await userService.searchUsers(usernameToCheck.toLowerCase());
+      const exists = users.some((user: any) => user.username === usernameToCheck.toLowerCase());
+      setUsernameAvailable(!exists);
     } catch (error) {
       console.error("Error checking username:", error);
+      setUsernameAvailable(true); // Allow registration on error
     } finally {
       setCheckingUsername(false);
     }
@@ -79,38 +79,17 @@ export default function RegisterPage() {
     }
 
     try {
-      // Create user with unified auth service
-      const user = await UnifiedAuthService.signUp(email, password, displayName);
+      // Register user with AWS Cognito (includes auto-confirmation and DynamoDB creation)
+      const user = await registerUser(email, password, displayName, username);
       
       let photoURL = "";
       
-      // Upload profile picture if provided
+      // Handle profile picture upload to S3 if needed
+      // For now, we'll skip this as S3 upload requires additional setup
       if (profilePicture) {
-        const timestamp = Date.now();
-        const fileExtension = profilePicture.name.split('.').pop() || 'jpg';
-        const fileName = `profilePictures/${user.uid}/avatar_${timestamp}.${fileExtension}`;
-        const storageRef = ref(storage, fileName);
-        const snapshot = await uploadBytes(storageRef, profilePicture);
-        photoURL = await getDownloadURL(snapshot.ref);
-        
-        // Update profile with photo URL
-        await UnifiedAuthService.updateProfile({ photoURL });
+        console.log('Profile picture upload to S3 not yet implemented');
+        // TODO: Implement S3 upload
       }
-
-      // Save user in Firestore with all fields
-      await setDoc(doc(db, "users", user.uid), {
-        uid: user.uid,
-        email,
-        displayName,
-        username: username.toLowerCase(),
-        photoURL,
-        bio: "",
-        status: "online",
-        servers: [],
-        conversations: [],
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
 
       router.push("/chat");
     } catch (err) {

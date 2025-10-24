@@ -1,10 +1,11 @@
-import {
-  CognitoUserPool,
-  CognitoUser,
+import { 
+  CognitoUserPool, 
+  CognitoUser, 
   AuthenticationDetails,
   CognitoUserAttribute,
-  CognitoUserSession,
+  CognitoUserSession
 } from 'amazon-cognito-identity-js';
+import { userService } from './dynamodb-service';
 import { awsConfig } from './config';
 
 // Initialize Cognito User Pool

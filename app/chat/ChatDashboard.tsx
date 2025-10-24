@@ -4,11 +4,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { db } from '@/lib/firebase';
-import {
-  doc,
-  onSnapshot as onDocSnapshot
-} from 'firebase/firestore';
 import { 
   getUserConversations, 
   getConversationWithDetails, 
@@ -22,9 +17,9 @@ import {
   renameGroupChat,
   leaveGroupChat,
   deleteGroupChat
-} from '@/lib/conversationService';
-import { getFriends, getPendingRequests } from '@/lib/friendService';
-import { setTypingStatus, subscribeToTypingStatus, formatTypingMessage } from '@/lib/typingService';
+} from '@/lib/aws/aws-conversation-service';
+import { getFriends, getPendingRequests } from '@/lib/aws/aws-friend-service';
+import { setTypingStatus, subscribeToTypingStatus, formatTypingMessage } from '@/lib/aws/typing-service';
 import ProfileEditModal from '@/components/ProfileEditModal';
 import GroupChatManageModal from '@/components/GroupChatManageModal';
 import FriendsPanel from '@/components/FriendsPanel';
@@ -314,29 +309,38 @@ const ChatDashboard: React.FC = () => {
     messages.forEach(m => uids.add(m.uid));
     if (user?.uid) uids.add(user.uid);
 
-    uids.forEach(uid => {
-      if (!userProfileUnsubsRef.current.has(uid)) {
-        const unsub = onDocSnapshot(doc(db, 'users', uid), (snap) => {
-          if (snap.exists()) {
-            const data = snap.data() as any;
-            setUserProfiles(prev => ({
-              ...prev,
-              [uid]: {
-                displayName: data.displayName,
-                username: data.username,
-                photoURL: data.photoURL,
-              }
-            }));
+    // Fetch user profiles from DynamoDB
+    const fetchUserProfiles = async () => {
+      const { userService } = await import('@/lib/aws/dynamodb-client');
+      
+      for (const uid of uids) {
+        if (!userProfileUnsubsRef.current.has(uid)) {
+          try {
+            const userData = await userService.getUser(uid);
+            if (userData) {
+              setUserProfiles(prev => ({
+                ...prev,
+                [uid]: {
+                  displayName: userData.displayName,
+                  username: userData.username,
+                  photoURL: userData.photoURL,
+                }
+              }));
+            }
+          } catch (error) {
+            console.error(`Error fetching user profile for ${uid}:`, error);
           }
-        });
-        userProfileUnsubsRef.current.set(uid, unsub);
+          // Mark as fetched to avoid repeated calls
+          userProfileUnsubsRef.current.set(uid, () => {});
+        }
       }
-    });
+    };
 
+    fetchUserProfiles();
+
+    // Clean up profiles no longer needed
     Array.from(userProfileUnsubsRef.current.keys()).forEach(uid => {
       if (!uids.has(uid)) {
-        const unsub = userProfileUnsubsRef.current.get(uid);
-        unsub && unsub();
         userProfileUnsubsRef.current.delete(uid);
         setUserProfiles(prev => {
           const { [uid]: _removed, ...rest } = prev;
@@ -365,19 +369,9 @@ const ChatDashboard: React.FC = () => {
     }
 
     try {
-      if (conversationType === 'conversation' && selectedConversation) {
+      if (selectedConversation) {
         // Send to conversation (DM or group chat)
         await sendConversationMessage(selectedConversation, user.uid, messageText);
-      } else if (conversationType === 'channel' && selectedChannel) {
-        // Send to channel
-        const messagesRef = collection(db, "channels", selectedChannel, "messages");
-        await addDoc(messagesRef, {
-          text: messageText,
-          createdAt: serverTimestamp(),
-          uid: user.uid,
-          displayName: user.displayName || "Anonymous",
-          photoURL: user.photoURL || "",
-        });
       }
 
       // Mark that user just sent a message (will trigger scroll in message listener)
@@ -1159,11 +1153,11 @@ const ChatDashboard: React.FC = () => {
           <div className="space-y-2">
             {conversationType === 'conversation' && selectedConversation ? (
               // Show conversation participants
-              conversations.find(c => c.id === selectedConversation)?.participantDetails?.map((participant: any) => (
+              conversations.find(c => c.id === selectedConversation)?.participantDetails?.map((participant: any, index: number) => (
                 <div 
-                  key={participant.id} 
+                  key={participant.id || participant.userId || `participant-${index}`} 
                   className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#18181b] transition-all cursor-pointer"
-                  onClick={() => setShowUserProfile(participant.id)}
+                  onClick={() => setShowUserProfile(participant.id || participant.userId)}
                 >
                   <div className="relative">
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
@@ -1283,39 +1277,44 @@ const ChatDashboard: React.FC = () => {
                   </div>
                 ) : (
                   <div className="border border-[#27272a] rounded-lg p-2 max-h-60 overflow-y-auto">
-                    {friends.map(friend => (
-                      <div
-                        key={friend.uid}
-                        className="w-full p-2 rounded-lg hover:bg-[#18181b] transition-colors flex items-center justify-between"
-                      >
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="checkbox"
-                            checked={selectedUsers.some(u => u.id === friend.uid)}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setSelectedUsers([...selectedUsers, {
-                                  id: friend.uid,
-                                  displayName: friend.displayName,
-                                  username: friend.username
-                                }]);
-                              } else {
-                                setSelectedUsers(selectedUsers.filter(u => u.id !== friend.uid));
-                              }
-                            }}
-                            className="rounded border-[#3f3f46] bg-[#18181b] text-[#818cf8]"
-                          />
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                            {friend.displayName?.[0]?.toUpperCase() || friend.username?.[0]?.toUpperCase()}
+                    {friends.map((friend, index) => {
+                      // Use friendId as the unique identifier, fallback to index if not available
+                      const friendKey = friend.friendId || friend.userId || `friend-${index}`;
+                      const friendUid = friend.friendId || friend.userId;
+                      
+                      return (
+                        <div
+                          key={friendKey}
+                          className="w-full p-2 rounded-lg hover:bg-[#18181b] transition-colors flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={selectedUsers.some(u => u.id === friendUid)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setSelectedUsers([...selectedUsers, {
+                                    id: friendUid,
+                                    displayName: friend.displayName,
+                                    username: friend.username
+                                  }]);
+                                } else {
+                                  setSelectedUsers(selectedUsers.filter(u => u.id !== friendUid));
+                                }
+                              }}
+                              className="rounded border-[#3f3f46] bg-[#18181b] text-[#818cf8]"
+                            />
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                              {friend.displayName?.[0]?.toUpperCase() || friend.username?.[0]?.toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="text-sm text-[#e4e4e7]">{friend.displayName}</p>
+                              <p className="text-xs text-[#71717a]">@{friend.username}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm text-[#e4e4e7]">{friend.displayName}</p>
-                            <p className="text-xs text-[#71717a]">@{friend.username}</p>
-                          </div>
+                          <div className={`w-2 h-2 ${getStatusColor(friend.status)} rounded-full`}></div>
                         </div>
-                        <div className={`w-2 h-2 ${getStatusColor(friend.status)} rounded-full`}></div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>

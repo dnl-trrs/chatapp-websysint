@@ -4,10 +4,8 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { UnifiedAuthService } from '@/lib/aws/unified-auth';
-import { updateUserProfile } from '@/lib/userService';
-import { db } from '@/lib/firebase';
-import { query, collection, where, getDocs } from 'firebase/firestore';
+import { signOutUser, updateUserProfile } from '@/lib/aws/auth';
+import { userService } from '@/lib/aws/dynamodb-client';
 import { useToast } from '@/components/Toast';
 
 interface SettingsPanelProps {
@@ -59,9 +57,9 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, onEditPr
     
     setCheckingUsername(true);
     try {
-      const q = query(collection(db, "users"), where("username", "==", usernameToCheck.toLowerCase()));
-      const querySnapshot = await getDocs(q);
-      setUsernameAvailable(querySnapshot.empty);
+      const users = await userService.searchUsers(usernameToCheck.toLowerCase());
+      const exists = users.some((u: any) => u.username === usernameToCheck.toLowerCase() && u.userId !== user?.uid);
+      setUsernameAvailable(!exists);
     } catch (error) {
       console.error("Error checking username:", error);
       setUsernameAvailable(null);
@@ -85,7 +83,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, onEditPr
       'Are you sure you want to log out?',
       async () => {
         try {
-          await UnifiedAuthService.signOut();
+          await signOutUser();
           showToast('Logged out successfully', 'success');
         } catch (error) {
           console.error('Error signing out:', error);
@@ -100,7 +98,7 @@ const SettingsPanel: React.FC<SettingsPanelProps> = ({ isOpen, onClose, onEditPr
     setStatus(newStatus);
     if (user?.uid) {
       try {
-        await updateUserProfile(user.uid, { status: newStatus });
+        await userService.updateUser(user.uid, { status: newStatus });
       } catch (error) {
         console.error('Error updating status:', error);
       }

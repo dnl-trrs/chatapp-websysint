@@ -13,8 +13,8 @@ import {
   acceptFriendRequest,
   rejectFriendRequest,
   Friend
-} from '@/lib/friendService';
-import { createOrGetDMConversation } from '@/lib/conversationService';
+} from '@/lib/aws/aws-friend-service';
+import { createOrGetDMConversation } from '@/lib/aws/aws-conversation-service';
 import UserProfileCard from './UserProfileCard';
 
 interface FriendsPanelProps {
@@ -93,9 +93,8 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
     if (!user?.uid) return;
     try {
       const requests = await getPendingRequests(user.uid);
-      // Filter to only show incoming requests (where user is the recipient)
-      const incomingRequests = requests.filter(req => req.toUid === user.uid);
-      setPendingRequests(incomingRequests);
+      // Show all pending requests (both sent and received)
+      setPendingRequests(requests);
     } catch (error) {
       console.error('Error loading pending requests:', error);
     }
@@ -105,14 +104,15 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
     if (!user?.uid) return;
     
     try {
+      const targetUserId = targetUser.userId || targetUser.id;
       await sendFriendRequest(
         user.uid,
-        targetUser.id,
+        targetUserId,
         user.displayName || 'User',
         targetUser.displayName || targetUser.username
       );
       showToast('Friend request sent successfully!', 'success');
-      setSearchResults(searchResults.filter(r => r.id !== targetUser.id));
+      setSearchResults(searchResults.filter(r => (r.userId || r.id) !== targetUserId));
     } catch (error: any) {
       showToast(error.message || 'Failed to send friend request', 'error');
     }
@@ -120,7 +120,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
 
   const handleAcceptRequest = async (request: any) => {
     try {
-      await acceptFriendRequest(request.fromUid, request.toUid);
+      await acceptFriendRequest(request.requestId || request.id);
       await loadFriends();
       await loadPendingRequests();
       showToast('Friend request accepted!', 'success');
@@ -291,9 +291,9 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {friends.map(friend => (
+                    {friends.map((friend, index) => (
                       <div 
-                        key={friend.uid} 
+                        key={friend.uid || friend.friendId || friend.userId || `friend-${index}`} 
                         className="flex items-center justify-between p-2 rounded-lg hover:bg-[#18181b] transition-all group"
                       >
                         <div 
@@ -368,39 +368,58 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                     <p className="text-[10px] text-[#71717a] mb-2">
                       {pendingRequests.length} pending request{pendingRequests.length !== 1 ? 's' : ''}
                     </p>
-                    {pendingRequests.map(request => (
-                      <div
-                        key={request.id}
-                        className="flex items-center justify-between p-3 rounded-lg bg-[#18181b] border border-[#27272a]"
-                      >
-                        <div 
-                          className="flex items-center gap-2 flex-1 cursor-pointer"
-                          onClick={() => setShowUserProfile(request.fromUid)}
+                    {pendingRequests.map((request, index) => {
+                      const isSentRequest = request.fromUserId === user?.uid;
+                      const displayUserId = isSentRequest ? request.toUserId : request.fromUserId;
+                      const displayName = isSentRequest ? request.toDisplayName : request.fromDisplayName;
+                      
+                      return (
+                        <div
+                          key={request.id || request.requestId || `pending-${index}`}
+                          className="flex items-center justify-between p-3 rounded-lg bg-[#18181b] border border-[#27272a]"
                         >
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                            {request.fromDisplayName?.[0]?.toUpperCase() || '?'}
+                          <div 
+                            className="flex items-center gap-2 flex-1 cursor-pointer"
+                            onClick={() => setShowUserProfile(displayUserId)}
+                          >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                              {displayName?.[0]?.toUpperCase() || '?'}
+                            </div>
+                            <div>
+                              <p className="text-xs text-[#e4e4e7] font-medium">{displayName}</p>
+                              <p className="text-[10px] text-[#71717a]">
+                                {isSentRequest ? 'Request sent' : 'Wants to be your friend'}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs text-[#e4e4e7] font-medium">{request.fromDisplayName}</p>
-                            <p className="text-[10px] text-[#71717a]">Wants to be your friend</p>
+                          <div className="flex items-center gap-1">
+                            {isSentRequest ? (
+                              <button
+                                onClick={() => handleRejectRequest(request.id || request.requestId)}
+                                className="px-2 py-1 bg-[#27272a] hover:bg-[#3f3f46] text-[#e4e4e7] text-[10px] rounded transition-colors"
+                              >
+                                Cancel
+                              </button>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleAcceptRequest(request)}
+                                  className="px-2 py-1 bg-[#22c55e] hover:bg-[#16a34a] text-white text-[10px] rounded transition-colors"
+                                >
+                                  Accept
+                                </button>
+                                <button
+                                  onClick={() => handleRejectRequest(request.id || request.requestId)}
+                                  className="px-2 py-1 bg-[#27272a] hover:bg-[#3f3f46] text-[#e4e4e7] text-[10px] rounded transition-colors"
+                                >
+                                  Decline
+                                </button>
+                              </>
+                            )}
                           </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={() => handleAcceptRequest(request)}
-                            className="px-2 py-1 bg-[#22c55e] hover:bg-[#16a34a] text-white text-[10px] rounded transition-colors"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => handleRejectRequest(request.id)}
-                            className="px-2 py-1 bg-[#27272a] hover:bg-[#3f3f46] text-[#e4e4e7] text-[10px] rounded transition-colors"
-                          >
-                            Decline
-                          </button>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -434,9 +453,9 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                     <p className="text-[10px] text-[#71717a] mb-1">
                       Found {searchResults.length} user{searchResults.length !== 1 ? 's' : ''}
                     </p>
-                    {searchResults.map(result => (
+                    {searchResults.map((result, index) => (
                       <div
-                        key={result.id}
+                        key={result.id || result.userId || `search-${index}`}
                         className="flex items-center justify-between p-2 rounded-lg bg-[#18181b] hover:bg-[#27272a] transition-colors"
                       >
                         <div 
