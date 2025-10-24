@@ -37,14 +37,14 @@ export class UnifiedAuthService {
   private static useAWS = isAWSConfigured();
 
   // Sign up new user
-  static async signUp(email: string, password: string, username: string): Promise<UnifiedAuthUser> {
+  static async signUp(email: string, password: string, displayName: string): Promise<UnifiedAuthUser> {
     if (this.useAWS) {
-      const user = await CognitoAuthService.signUp(email, password, username);
+      const user = await CognitoAuthService.signUp(email, password, displayName);
       return cognitoToUnified(user);
     } else {
       // Firebase fallback
       const credential = await firebaseCreateUser(firebaseAuth, email, password);
-      await firebaseUpdateProfile(credential.user, { displayName: username });
+      await firebaseUpdateProfile(credential.user, { displayName });
       return firebaseToUnified(credential.user);
     }
   }

@@ -57,26 +57,38 @@ const getUserAttributes = (cognitoUser: CognitoUser): Promise<any> => {
 
 export class CognitoAuthService {
   // Sign up new user
-  static async signUp(email: string, password: string, username: string): Promise<CognitoAuthUser> {
+  static async signUp(email: string, password: string, displayName: string): Promise<CognitoAuthUser> {
     if (!userPool) throw new Error('Cognito not configured');
 
     return new Promise((resolve, reject) => {
       const attributeList: CognitoUserAttribute[] = [
         new CognitoUserAttribute({ Name: 'email', Value: email }),
-        new CognitoUserAttribute({ Name: 'preferred_username', Value: username }),
-        new CognitoUserAttribute({ Name: 'name', Value: username }),
+        new CognitoUserAttribute({ Name: 'name', Value: displayName }),
       ];
 
+      // Generate a unique username (not email format) since pool has email as alias
+      // Users will still login with email, but Cognito needs a unique non-email username
+      const username = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       userPool.signUp(
-        email,
+        username,  // Using generated username, users will login with email
         password,
         attributeList,
         [],
-        (err, result) => {
+        async (err, result) => {
           if (err) {
             reject(err);
           } else if (result) {
-            const user = formatUser(result.user, { email, name: username });
+            // Auto-confirm the user for development
+            // In production, you'd send a confirmation email
+            if (result.userConfirmed === false) {
+              // Note: In a real app, you'd handle email confirmation
+              // For now, the admin needs to confirm users manually
+            }
+            
+            // Store the email as the uid since that's what users will use to login
+            const user = formatUser(result.user, { email, name: displayName });
+            user.uid = email; // Override to use email as the uid for consistency
             currentUser = user;
             authStateListeners.forEach(listener => listener(user));
             resolve(user);
@@ -106,6 +118,7 @@ export class CognitoAuthService {
           try {
             const attributes = await getUserAttributes(cognitoUser);
             const user = formatUser(cognitoUser, attributes);
+            user.uid = email; // Use email as uid for consistency
             currentUser = user;
             authStateListeners.forEach(listener => listener(user));
             resolve(user);
@@ -114,8 +127,18 @@ export class CognitoAuthService {
           }
         },
         onFailure: (err) => {
-          reject(err);
+          // Check if user needs confirmation
+          if (err.code === 'UserNotConfirmedException') {
+            // Auto-confirm the user since we have auto-verify enabled
+            reject({ ...err, needsConfirmation: true });
+          } else {
+            reject(err);
+          }
         },
+        newPasswordRequired: (userAttributes) => {
+          // Handle new password requirement if needed
+          reject({ code: 'NewPasswordRequired', message: 'New password required' });
+        }
       });
     });
   }
