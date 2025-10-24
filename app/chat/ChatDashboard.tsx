@@ -13,7 +13,6 @@ import {
   subscribeToConversationMessages,
   subscribeToUserConversations,
   hideConversation,
-  unhideConversation,
   renameGroupChat,
   leaveGroupChat,
   deleteGroupChat
@@ -114,39 +113,6 @@ const ChatDashboard: React.FC = () => {
   };
 
   const displayName = profile?.displayName || user?.displayName || 'User';
-  
-  // Temporary placeholders to fix undefined errors - these features have been removed
-  const servers: any[] = [];
-  const channels: any[] = [];
-  const selectedServer = '';
-  const setSelectedServer = (id: string) => {};
-  const selectedChannel = '';
-  const setSelectedChannel = (id: string) => {};
-  const conversationType = 'conversation';
-  const setConversationType = (type: string) => {};
-  const currentServer: any = null;
-  const serverName = '';
-  const setShowNewServerModal = (show: boolean) => {};
-  const setManagedServer = (server: any) => {};
-  const setShowServerManageModal = (show: boolean) => {};
-  const setShowCreateChannelModal = (show: boolean) => {};
-  const handleEditChannel = (channel: any) => {};
-  const getUserServers = async (uid: string) => [];
-  const setServers = (servers: any[]) => {};
-  const serverMembers: any[] = [];
-  const showNewServerModal = false;
-  const showChannelManageModal = false;
-  const managedChannel: any = null;
-  const showServerManageModal = false;
-  const managedServer: any = null;
-  const showCreateChannelModal = false;
-  const getChannels = async (serverId: string) => [];
-  const handleServerCreated = async () => {};
-  const handleUpdateChannel = async (name: string) => {};
-  const handleDeleteChannel = async () => {};
-  const handleUpdateServer = async (name: string) => {};
-  const handleDeleteServer = async () => {};
-  const leaveServer = async (serverId: string, userId: string) => {};
 
   // Subscribe to user's conversations with real-time updates
   useEffect(() => {
@@ -361,12 +327,6 @@ const ChatDashboard: React.FC = () => {
       clearTimeout(typingTimeoutRef.current);
     }
     setIsTyping(false);
-    // Clear typing status when sending (only for channels)
-    if (conversationType === 'channel' && selectedChannel && user) {
-      await setTypingStatus(selectedChannel, user.uid, user.displayName || 'User', false).catch(() => {
-        // Ignore errors
-      });
-    }
 
     try {
       if (selectedConversation) {
@@ -478,7 +438,21 @@ const ChatDashboard: React.FC = () => {
 
   const formatMessageTime = (timestamp: any) => {
     if (!timestamp) return "";
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp.seconds * 1000);
+    
+    let date: Date;
+    
+    // Handle different timestamp formats
+    if (timestamp.toDate) {
+      date = timestamp.toDate();
+    } else if (timestamp.seconds) {
+      date = new Date(timestamp.seconds * 1000);
+    } else if (typeof timestamp === 'number') {
+      // Handle millisecond timestamp from DynamoDB
+      date = new Date(timestamp);
+    } else {
+      date = new Date(timestamp);
+    }
+    
     const today = new Date();
     const isToday = date.toDateString() === today.toDateString();
     const yesterday = new Date(today);
@@ -486,11 +460,11 @@ const ChatDashboard: React.FC = () => {
     const isYesterday = date.toDateString() === yesterday.toDateString();
     
     if (isToday) {
-      return `Today at ${date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
+      return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
     } else if (isYesterday) {
       return `Yesterday at ${date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
     }
-    return date.toLocaleDateString("en-US", { month: "2-digit", day: "2-digit", year: "numeric" });
+    return `${date.toLocaleDateString("en-US", { month: "short", day: "numeric" })} at ${date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
   };
 
   return (
@@ -592,11 +566,19 @@ const ChatDashboard: React.FC = () => {
                                 <path d="M14 8.00598C14 10.211 12.206 12.006 10 12.006C7.795 12.006 6 10.211 6 8.00598C6 5.80098 7.794 4.00598 10 4.00598C12.206 4.00598 14 5.80098 14 8.00598ZM2 19.006C2 15.473 5.29 13.006 10 13.006C14.711 13.006 18 15.473 18 19.006V20.006H2V19.006Z"/>
                               </svg>
                             </div>
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                              {displayName[0]?.toUpperCase()}
-                            </div>
-                          )}
+          ) : otherParticipant?.photoURL ? (
+            <Image
+              src={otherParticipant.photoURL}
+              alt={otherParticipant.displayName}
+              width={28}
+              height={28}
+              className="rounded-full"
+            />
+          ) : (
+            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+              {displayName[0]?.toUpperCase()}
+            </div>
+          )}
                           {convo.type === 'dm' && otherParticipant?.status && (
                             <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 ${getStatusColor(otherParticipant.status)} rounded-full border border-[#0a0a0b]`}></div>
                           )}
@@ -688,7 +670,7 @@ const ChatDashboard: React.FC = () => {
 
       </div>
 
-      {/* Main Server/Conversation Area with integrated chat */}
+      {/* Main Chat Area */}
       <div className="flex-1 flex flex-col p-4 gap-4">
         {/* Main Chat Tile */}
         <div className="flex-1 glass rounded-xl flex flex-col overflow-hidden animate-fade-in-up" style={{ animationDelay: '0.15s' }}>
@@ -754,161 +736,26 @@ const ChatDashboard: React.FC = () => {
             )}
           </div>
 
-          <div className="flex flex-1 overflow-hidden">
-            {/* Removed channel list - only conversations now */}
-              <div className="w-56 border-r border-[#27272a] p-4 overflow-y-auto bg-[#18181b]/30">
-            {channels.length === 0 ? (
-              <div className="flex flex-col items-center text-center pt-6">
-                <button
-                  onClick={() => setShowCreateChannelModal(true)}
-                  className="w-12 h-12 rounded-full bg-[#27272a] hover:bg-[#818cf8] flex items-center justify-center mb-3 transition-all duration-200 group">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" className="text-[#71717a] group-hover:text-white transition-colors">
-                    <path d="M20 11H13V4H11V11H4V13H11V20H13V13H20V11Z"/>
-                  </svg>
-                </button>
-                <h3 className="text-sm font-semibold text-[#e4e4e7] mb-1">
-                  No channels yet
-                </h3>
-                <p className="text-xs text-[#71717a]">
-                  Create a channel to get started
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="space-y-4">
-                  {/* Text Channels */}
-                  <div>
-                    <div className="text-xs text-[#71717a] uppercase font-semibold mb-2">Text Channels</div>
-                    {channels.filter(ch => ch.type === 'text').map(channel => (
-                      <div
-                        key={channel.id}
-                        className={`w-full text-left px-3 py-2 rounded-lg transition-all flex items-center justify-between group mb-1 cursor-pointer ${
-                          selectedChannel === channel.id
-                            ? 'bg-[#818cf8]/20 text-[#e4e4e7]'
-                            : 'text-[#a1a1aa] hover:bg-[#18181b] hover:text-[#e4e4e7]'
-                        }`}
-                      >
-                        <div 
-                          className="flex items-center gap-2 flex-1"
-                          onClick={() => setSelectedChannel(channel.id)}
-                        >
-                          <span className="text-[#71717a]">#</span>
-                          <span className="text-sm">{channel.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          {channel.unreadCount && (
-                            <span className="bg-[#ef4444] text-white text-xs rounded-full px-1.5 py-0.5 min-w-[20px] text-center">
-                              {channel.unreadCount}
-                            </span>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditChannel({ id: channel.id, name: channel.name, type: channel.type });
-                            }}
-                            className="opacity-0 group-hover:opacity-100 text-[#71717a] hover:text-[#e4e4e7] transition-all p-1 rounded hover:bg-[#27272a]">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Voice Channels */}
-                  <div>
-                    <div className="text-xs text-[#71717a] uppercase font-semibold mb-2">Voice Channels</div>
-                    {channels.filter(ch => ch.type === 'voice').map(channel => (
-                      <div
-                        key={channel.id}
-                        className={`w-full text-left px-3 py-2 rounded-lg transition-all flex items-center justify-between group mb-1 cursor-pointer ${
-                          selectedChannel === channel.id
-                            ? 'bg-[#818cf8]/20 text-[#e4e4e7]'
-                            : 'text-[#a1a1aa] hover:bg-[#18181b] hover:text-[#e4e4e7]'
-                        }`}
-                      >
-                        <div 
-                          className="flex items-center gap-2 flex-1"
-                          onClick={() => setSelectedChannel(channel.id)}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45304 2 9.00204V15.002C2 15.552 2.45 16.002 3 16.002H6L10.293 20.71C10.579 20.996 11.009 21.082 11.383 20.927C11.757 20.772 12 20.407 12 20.002V4.00204C12 3.59904 11.757 3.23204 11.383 3.07904Z"/>
-                          </svg>
-                          <span className="text-sm">{channel.name}</span>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleEditChannel({ id: channel.id, name: channel.name, type: channel.type });
-                            }}
-                            className="opacity-0 group-hover:opacity-100 text-[#71717a] hover:text-[#e4e4e7] transition-all p-1 rounded hover:bg-[#27272a]"
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                              <path d="M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z"/>
-                            </svg>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                
-                <button
-                  onClick={() => setShowCreateChannelModal(true)}
-                  className="mt-4 w-full px-4 py-2 bg-[#27272a] hover:bg-[#18181b] text-[#e4e4e7] rounded-lg transition-all flex items-center justify-center gap-2 text-sm">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M20 11H13V4H11V11H4V13H11V20H13V13H20V11Z"/>
-                  </svg>
-                  Create Channel
-                </button>
-              </>
-            )}
-          </div>
-
-            {/* Chat/Content Area */}
+          {/* Chat/Content Area */}
             <div className="flex-1 flex flex-col">
-            {(conversationType === 'channel' && !selectedChannel) || (conversationType === 'conversation' && !selectedConversation) ? (
+            {!selectedConversation ? (
               <div className="flex-1 flex items-center justify-center bg-[#0a0a0b]/50">
                 <div className="text-center p-8">
                   <div className="w-24 h-24 rounded-full bg-gradient-to-br from-[#818cf8]/20 to-[#c084fc]/20 flex items-center justify-center mx-auto mb-4 animate-pulse">
                     <span className="text-4xl">💬</span>
                   </div>
                   <h3 className="text-2xl font-bold text-[#e4e4e7] mb-3">
-                    {conversationType === 'conversation' ? 
-                      'No conversation selected' :
-                      (selectedServer && selectedServer !== '' ? `Welcome to ${currentServer?.name || serverName}!` : "There's currently no server selected")
-                    }
+                    No conversation selected
                   </h3>
                   <p className="text-[#a1a1aa] text-sm">
-                    {conversationType === 'conversation' ? 
-                      'Select a conversation from the left sidebar to start chatting' :
-                      (selectedServer && selectedServer !== '' ? 'Select a channel from the sidebar to start chatting' : 'Create or Join a Server to start chatting')
-                    }
+                    Select a conversation from the left sidebar to start chatting
                   </p>
                 </div>
               </div>
             ) : (
               <>
-                {/* Chat Header - for both channels and conversations */}
-                {conversationType === 'channel' ? (
-                  // Channel Header
-                  <div className="border-b border-[#27272a] px-4 py-3 flex items-center justify-between bg-[#18181b]/20">
-                    <div className="flex items-center gap-2">
-                      {channels.find(ch => ch.id === selectedChannel)?.type === 'voice' ? (
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="#71717a">
-                          <path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45304 2 9.00204V15.002C2.45 16.002 3 16.002H6L10.293 20.71C10.579 20.996 11.009 21.082 11.383 20.927C11.757 20.772 12 20.407 12 20.002V4.00204C12 3.59904 11.757 3.23204 11.383 3.07904Z"/>
-                        </svg>
-                      ) : (
-                        <span className="text-[#71717a] text-xl">#</span>
-                      )}
-                      <h2 className="text-lg font-semibold text-[#e4e4e7]">
-                        {channels.find(ch => ch.id === selectedChannel)?.name}
-                      </h2>
-                    </div>
-                  </div>
-                ) : conversationType === 'conversation' && selectedConversation ? (
+                {/* Conversation Header */}
+                {selectedConversation ? (
                   // Conversation sub-header (smaller than main header)
                   (() => {
                     const conversation = conversations.find(c => c.id === selectedConversation);
@@ -943,51 +790,25 @@ const ChatDashboard: React.FC = () => {
                       setShowScrollButton(distanceFromBottom > 200);
                     }}
                   >
-                  {channels.find(ch => ch.id === selectedChannel)?.type === 'voice' ? (
-                    <div className="h-full flex items-center justify-center">
-                      <div className="text-center">
-                        <svg width="64" height="64" viewBox="0 0 24 24" fill="#71717a" className="mx-auto mb-4">
-                          <path d="M11.383 3.07904C11.009 2.92504 10.579 3.01004 10.293 3.29604L6 8.00204H3C2.45 8.00204 2 8.45304 2 9.00204V15.002C2 15.552 2.45 16.002 3 16.002H6L10.293 20.71C10.579 20.996 11.009 21.082 11.383 20.927C11.757 20.772 12 20.407 12 20.002V4.00204C12 3.59904 11.757 3.23204 11.383 3.07904Z"/>
-                        </svg>
-                        <h3 className="text-xl font-semibold text-[#e4e4e7] mb-2">Voice Channel</h3>
-                        <p className="text-[#71717a] max-w-sm mx-auto">
-                          Voice channels are currently in development.
-                        </p>
-                        <button className="mt-6 btn btn-primary">
-                          Join Voice Channel
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <>
-                      {messages.length === 0 ? (
+                    {messages.length === 0 ? (
                         <div className="h-full flex items-center justify-center">
                           <div className="text-center">
                             <div className="w-20 h-20 rounded-full bg-[#27272a] flex items-center justify-center mx-auto mb-4">
-                              <span className="text-3xl text-[#71717a]">{
-                                conversationType === 'conversation' ? '💬' : '#'
-                              }</span>
+                              <span className="text-3xl text-[#71717a]">💬</span>
                             </div>
                             <h3 className="text-xl font-semibold text-[#e4e4e7] mb-2">
                               {(() => {
-                                if (conversationType === 'conversation') {
-                                  const conversation = conversations.find(c => c.id === selectedConversation);
-                                  if (conversation?.type === 'dm') {
-                                    const otherParticipant = conversation.participantDetails?.find((p: any) => p.id !== user?.uid);
-                                    return `This is the beginning of your conversation with ${otherParticipant?.displayName || 'this user'}`;
-                                  } else {
-                                    return `Welcome to ${conversation?.name || 'this group chat'}!`;
-                                  }
+                                const conversation = conversations.find(c => c.id === selectedConversation);
+                                if (conversation?.type === 'dm') {
+                                  const otherParticipant = conversation.participantDetails?.find((p: any) => p.id !== user?.uid);
+                                  return `This is the beginning of your conversation with ${otherParticipant?.displayName || 'this user'}`;
                                 } else {
-                                  return `Welcome to #${channels.find(ch => ch.id === selectedChannel)?.name}!`;
+                                  return `Welcome to ${conversation?.name || 'this group chat'}!`;
                                 }
                               })()}
                             </h3>
                             <p className="text-[#71717a]">
-                              {conversationType === 'conversation' ? 
-                                'Send a message to start the conversation.' :
-                                `This is the beginning of the #${channels.find(ch => ch.id === selectedChannel)?.name} channel.`
-                              }
+                              Send a message to start the conversation.
                             </p>
                           </div>
                         </div>
@@ -998,15 +819,14 @@ const ChatDashboard: React.FC = () => {
                             let msgDisplayName = msg.displayName;
                             let photoURL = msg.photoURL;
                             
-                            if (conversationType === 'conversation') {
-                              const conversation = conversations.find(c => c.id === selectedConversation);
-                              const participant = conversation?.participantDetails?.find((p: any) => p.id === msg.uid);
-                              if (participant) {
-                                msgDisplayName = participant.displayName || msgDisplayName;
-                                photoURL = participant.photoURL || photoURL;
-                              }
+                            // Get user info from participant details or user profiles
+                            const conversation = conversations.find(c => c.id === selectedConversation);
+                            const participant = conversation?.participantDetails?.find((p: any) => p.id === msg.uid);
+                            if (participant) {
+                              msgDisplayName = participant.displayName || msgDisplayName;
+                              photoURL = participant.photoURL || photoURL;
                             } else {
-                              // For channels, use the userProfiles cache
+                              // Fallback to userProfiles cache
                               const profile = userProfiles[msg.uid];
                               msgDisplayName = profile?.displayName || msgDisplayName;
                               photoURL = profile?.photoURL || photoURL;
@@ -1071,8 +891,6 @@ const ChatDashboard: React.FC = () => {
                           <div ref={messagesEndRef} />
                         </>
                       )}
-                    </>
-                  )}
                   </div>
                   
                   {/* Scroll to Bottom Button - positioned relative to container */}
@@ -1094,8 +912,7 @@ const ChatDashboard: React.FC = () => {
                 </div>
 
                 {/* Message Input */}
-                {((conversationType === 'channel' && channels.find(ch => ch.id === selectedChannel)?.type === 'text') || 
-                  (conversationType === 'conversation' && selectedConversation)) && (
+                {selectedConversation && (
                   <form onSubmit={handleSendMessage} className="p-4 border-t border-[#27272a] bg-[#18181b]/20">
                     <div className="flex gap-3">
                       <input
@@ -1103,19 +920,16 @@ const ChatDashboard: React.FC = () => {
                         value={newMessage}
                         onChange={handleTyping}
                         placeholder={(() => {
-                          if (conversationType === 'conversation') {
-                            const conversation = conversations.find(c => c.id === selectedConversation);
-                            if (conversation?.type === 'dm') {
-                              const otherParticipant = conversation.participantDetails?.find((p: any) => p.id !== user?.uid);
-                              return `Message @${otherParticipant?.username || 'user'}`;
-                            } else {
-                              return `Message ${conversation?.name || 'group'}`;
-                            }
+                          const conversation = conversations.find(c => c.id === selectedConversation);
+                          if (conversation?.type === 'dm') {
+                            const otherParticipant = conversation.participantDetails?.find((p: any) => p.id !== user?.uid);
+                            return `Message @${otherParticipant?.username || 'user'}`;
                           } else {
-                            return `Message #${channels.find(ch => ch.id === selectedChannel)?.name}`;
+                            return `Message ${conversation?.name || 'group'}`;
                           }
                         })()}
                         className="input flex-1"
+                        autoFocus
                       />
                       <button
                         type="submit"
@@ -1125,7 +939,7 @@ const ChatDashboard: React.FC = () => {
                         Send
                       </button>
                     </div>
-                    {conversationType === 'channel' && typingUsers.length > 0 && (
+                    {typingUsers.length > 0 && (
                       <div className="mt-2 text-xs text-[#71717a] flex items-center gap-1">
                         <span>{formatTypingMessage(typingUsers)}</span>
                       </div>
@@ -1135,7 +949,6 @@ const ChatDashboard: React.FC = () => {
               </>
             )}
             </div>
-          </div>
         </div>
       </div>
 
@@ -1144,14 +957,14 @@ const ChatDashboard: React.FC = () => {
         {/* Member List */}
         <div className="flex-1 glass rounded-xl p-4 overflow-y-auto animate-fade-in-up" style={{ animationDelay: '0.2s' }}>
           <h3 className="text-xs text-[#71717a] uppercase font-semibold mb-3">
-            {conversationType === 'conversation' && selectedConversation ? (
+            {selectedConversation ? (
               <>Participants — {conversations.find(c => c.id === selectedConversation)?.participants?.length || 0}</>
             ) : (
-              <>Members — {serverMembers.length || 0}</>
+              <>Select a conversation</>
             )}
           </h3>
           <div className="space-y-2">
-            {conversationType === 'conversation' && selectedConversation ? (
+            {selectedConversation ? (
               // Show conversation participants
               conversations.find(c => c.id === selectedConversation)?.participantDetails?.map((participant: any, index: number) => (
                 <div 
@@ -1160,9 +973,19 @@ const ChatDashboard: React.FC = () => {
                   onClick={() => setShowUserProfile(participant.id || participant.userId)}
                 >
                   <div className="relative">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                      {participant.displayName?.[0] || participant.username?.[0] || '?'}
-                    </div>
+                    {participant.photoURL ? (
+                      <Image
+                        src={participant.photoURL}
+                        alt={participant.displayName}
+                        width={32}
+                        height={32}
+                        className="rounded-full"
+                      />
+                    ) : (
+                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                        {participant.displayName?.[0] || participant.username?.[0] || '?'}
+                      </div>
+                    )}
                     <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 ${getStatusColor(participant.status)} rounded-full border-2 border-[#18181b]`}></div>
                   </div>
                   <div>
@@ -1171,27 +994,7 @@ const ChatDashboard: React.FC = () => {
                   </div>
                 </div>
               ))
-            ) : (
-              // Show server members
-              serverMembers.map(member => (
-                <div 
-                  key={member.id} 
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#18181b] transition-all cursor-pointer"
-                  onClick={() => setShowUserProfile(member.id)}
-                >
-                  <div className="relative">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                      {member.displayName?.[0] || member.username?.[0] || '?'}
-                    </div>
-                    <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 ${getStatusColor(member.status)} rounded-full border-2 border-[#18181b]`}></div>
-                  </div>
-                  <div>
-                    <p className="text-sm text-[#a1a1aa]">{member.displayName}</p>
-                    <p className="text-xs text-[#71717a]">@{member.username}</p>
-                  </div>
-                </div>
-              ))
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -1201,9 +1004,19 @@ const ChatDashboard: React.FC = () => {
             className="flex items-center gap-3 mb-3 cursor-pointer hover:bg-[#27272a] rounded-lg p-2 -m-2 transition-colors"
             onClick={() => user?.uid && setShowUserProfile(user.uid)}
           >
-            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-sm font-bold">
-              {displayName[0]?.toUpperCase()}
-            </div>
+            {profile?.photoURL ? (
+              <Image
+                src={profile.photoURL}
+                alt={displayName}
+                width={40}
+                height={40}
+                className="rounded-full"
+              />
+            ) : (
+              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-sm font-bold">
+                {displayName[0]?.toUpperCase()}
+              </div>
+            )}
             <div className="flex-1">
               <p className="text-sm text-[#e4e4e7] font-semibold">{displayName}</p>
               <p className="text-xs text-[#71717a]">@{profile?.username || 'username'}</p>
@@ -1303,9 +1116,19 @@ const ChatDashboard: React.FC = () => {
                               }}
                               className="rounded border-[#3f3f46] bg-[#18181b] text-[#818cf8]"
                             />
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                              {friend.displayName?.[0]?.toUpperCase() || friend.username?.[0]?.toUpperCase()}
-                            </div>
+                            {friend.photoURL ? (
+                              <Image
+                                src={friend.photoURL}
+                                alt={friend.displayName || friend.username}
+                                width={32}
+                                height={32}
+                                className="rounded-full"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                                {friend.displayName?.[0]?.toUpperCase() || friend.username?.[0]?.toUpperCase()}
+                              </div>
+                            )}
                             <div>
                               <p className="text-sm text-[#e4e4e7]">{friend.displayName}</p>
                               <p className="text-xs text-[#71717a]">@{friend.username}</p>
@@ -1395,7 +1218,6 @@ const ChatDashboard: React.FC = () => {
         }}
         onStartChat={async (conversationId) => {
           setSelectedConversation(conversationId);
-          setConversationType('conversation');
           // Refresh conversations
           if (user?.uid) {
             const convos = await getUserConversations(user.uid, conversationFilter);
@@ -1487,7 +1309,6 @@ const ChatDashboard: React.FC = () => {
             setConversations(convosWithDetails.filter(c => c !== null));
             if (selectedConversation === managedGroup.id) {
               setSelectedConversation(null);
-              setConversationType('channel');
             }
           }}
           onDelete={async () => {
@@ -1503,7 +1324,6 @@ const ChatDashboard: React.FC = () => {
             setConversations(convosWithDetails.filter(c => c !== null));
             if (selectedConversation === managedGroup.id) {
               setSelectedConversation(null);
-              setConversationType('channel');
             }
           }}
         />
@@ -1585,7 +1405,6 @@ const ChatDashboard: React.FC = () => {
           onClose={() => setShowUserProfile(null)}
           onStartChat={async (conversationId) => {
             setSelectedConversation(conversationId);
-            setConversationType('conversation');
             // Refresh conversations to include the new one
             if (user?.uid) {
               const convos = await getUserConversations(user.uid, conversationFilter);

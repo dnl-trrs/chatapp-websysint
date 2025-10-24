@@ -378,11 +378,14 @@ export const subscribeToConversationMessages = (
   conversationId: string,
   callback: (messages: Message[]) => void
 ): () => void => {
-  // Poll for new messages every 2 seconds
+  // Initial load
+  getMessages(conversationId).then(callback);
+  
+  // Poll for new messages every second for better real-time feel
   const interval = setInterval(async () => {
     const messages = await getMessages(conversationId);
     callback(messages);
-  }, 2000);
+  }, 1000);
 
   // Return unsubscribe function
   return () => clearInterval(interval);
@@ -421,11 +424,14 @@ export const subscribeToUserConversations = (
   userId: string,
   callback: (conversations: Conversation[]) => void
 ): () => void => {
-  // Poll for updates every 3 seconds
+  // Initial load
+  getUserConversations(userId).then(callback);
+  
+  // Poll for updates every 2 seconds for better responsiveness
   const interval = setInterval(async () => {
     const conversations = await getUserConversations(userId);
     callback(conversations);
-  }, 3000);
+  }, 2000);
 
   return () => clearInterval(interval);
 };

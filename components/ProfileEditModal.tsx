@@ -13,18 +13,36 @@ interface ProfileEditModalProps {
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
-  const { profile } = useUserProfile(user?.uid);
+  const { profile, updateProfile } = useUserProfile(user?.uid);
   const { showToast } = useToast();
   
   const [uploadedImage, setUploadedImage] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string>('');
+  const [bio, setBio] = useState<string>('');
+  const [displayName, setDisplayName] = useState<string>('');
+  const [isUploading, setIsUploading] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
 
   useEffect(() => {
-    if (profile?.photoURL && (profile.photoURL.startsWith('http') || profile.photoURL.startsWith('data:image'))) {
-      setUploadPreview(profile.photoURL);
+    if (profile && isOpen && !isInitialized) {
+      console.log('ProfileEditModal - Loading profile:', profile);
+      if (profile.photoURL && (profile.photoURL.startsWith('http') || profile.photoURL.startsWith('data:image'))) {
+        setUploadPreview(profile.photoURL);
+      }
+      // Ensure bio is loaded from profile
+      const currentBio = profile.bio || '';
+      console.log('Setting bio to:', currentBio);
+      setBio(currentBio);
+      setDisplayName(profile.displayName || user?.displayName || '');
+      setIsInitialized(true);
     }
-  }, [profile]);
+    
+    // Reset initialization when modal closes
+    if (!isOpen) {
+      setIsInitialized(false);
+    }
+  }, [profile, user, isOpen, isInitialized]);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -43,10 +61,77 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
   };
 
 
-  const handleSave = () => {
-    // Placeholder for future implementation
-    showToast('Profile picture update functionality coming soon!', 'info');
-    onClose();
+  const handleSave = async () => {
+    if (!user?.uid) return;
+    
+    setIsUploading(true);
+    
+    try {
+      let photoURL = profile?.photoURL;
+      
+      // Upload image if new one selected
+      if (uploadedImage) {
+        const formData = new FormData();
+        formData.append('file', uploadedImage);
+        formData.append('userId', user.uid);
+        formData.append('type', 'profile');
+        
+        const uploadResponse = await fetch('/api/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!uploadResponse.ok) {
+          throw new Error('Failed to upload image');
+        }
+        
+        const uploadData = await uploadResponse.json();
+        photoURL = uploadData.url;
+      }
+      
+      // Update user profile in DynamoDB
+      const updates: any = {
+        displayName: displayName.trim()
+      };
+      
+      // Always include bio, even if empty
+      updates.bio = bio.trim();
+      
+      // Include photoURL if changed
+      if (photoURL) {
+        updates.photoURL = photoURL;
+      }
+      
+      console.log('Saving profile updates:', updates); // Debug log
+      
+      const response = await fetch('/api/users', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.uid,
+          updates
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update profile');
+      }
+      
+      // Update local profile state
+      await updateProfile(updates);
+      
+      // Also verify the update by fetching the profile again
+      const updatedProfile = await response.json();
+      console.log('Profile updated successfully:', updatedProfile);
+      
+      showToast('Profile updated successfully!', 'success');
+      onClose();
+    } catch (error) {
+      console.error('Error saving profile:', error);
+      showToast('Failed to update profile', 'error');
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -55,7 +140,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 animate-fade-in">
       <div className="glass-dark rounded-xl p-6 w-full max-w-lg animate-fade-in-up">
         <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-bold text-[#e4e4e7]">Choose Profile Picture</h2>
+          <h2 className="text-xl font-bold text-[#e4e4e7]">Edit Profile</h2>
           <button
             onClick={onClose}
             className="text-[#71717a] hover:text-[#e4e4e7] transition-colors"
@@ -94,9 +179,38 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
             </div>
           </div>
 
+          {/* Display Name */}
+          <div>
+            <label className="text-sm text-[#a1a1aa] mb-2 block">Display Name</label>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              className="input w-full"
+              placeholder="Enter your display name"
+            />
+          </div>
+
+          {/* Bio */}
+          <div>
+            <label className="text-sm text-[#a1a1aa] mb-2 block">Bio</label>
+            <textarea
+              value={bio}
+              onChange={(e) => {
+                const newBio = e.target.value;
+                console.log('Bio changed to:', newBio);
+                setBio(newBio);
+              }}
+              className="input w-full h-24 resize-none"
+              placeholder="Tell us about yourself..."
+              maxLength={200}
+            />
+            <p className="text-xs text-[#71717a] mt-1">{bio.length}/200 characters</p>
+          </div>
+
           {/* Upload Image */}
           <div>
-            <h3 className="text-sm text-[#a1a1aa] mb-3">Upload Profile Picture</h3>
+            <h3 className="text-sm text-[#a1a1aa] mb-3">Profile Picture</h3>
             <label 
               htmlFor="profile-picture-upload"
               className="block w-full btn btn-secondary py-2 text-center cursor-pointer"
@@ -128,9 +242,10 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
           </button>
           <button
             onClick={handleSave}
-            className="btn btn-primary px-4 py-2"
+            disabled={isUploading || !displayName.trim()}
+            className="btn btn-primary px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Picture
+            {isUploading ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
