@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAWSCredentials, getAWSRegion } from '@/lib/aws/server-config';
 import { CognitoIdentityProviderClient, SignUpCommand, AdminConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
@@ -12,7 +13,7 @@ function generateSecretHash(username: string, clientId: string, clientSecret: st
 }
 
 const dbClient = new DynamoDBClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
+  region: getAWSRegion(),
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
@@ -23,7 +24,7 @@ const docClient = DynamoDBDocumentClient.from(dbClient);
 const USERS_TABLE = 'chatapp-users';
 
 const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
+  region: getAWSRegion(),
   credentials: {
     accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''

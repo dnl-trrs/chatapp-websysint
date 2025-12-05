@@ -1,14 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
+import { getAWSCredentials, getAWSRegion } from '@/lib/aws/server-config';
 
 // Initialize DynamoDB client with server-side credentials
 const client = new DynamoDBClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-  }
+  region: getAWSRegion(),
+  credentials: getAWSCredentials()
 });
 
 const docClient = DynamoDBDocumentClient.from(client);

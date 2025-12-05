@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAWSCredentials, getAWSRegion } from '@/lib/aws/server-config';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Initialize S3 client
 const s3Client = new S3Client({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
+  region: getAWSRegion(),
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+    accessKeyId: getAWSCredentials().accessKeyId,
+    secretAccessKey: getAWSCredentials().secretAccessKey
   }
 });
 
