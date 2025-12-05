@@ -62,7 +62,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
       try {
         const results = await searchUsersByHandle(searchTerm, user.uid);
         // Filter out existing friends
-        const friendIds = friends.map(f => f.friendId);
+        const friendIds = friends.map(f => f.uid);
         const filteredResults = results.filter(r => !friendIds.includes(r.id));
         setSearchResults(filteredResults);
       } catch (error) {
@@ -293,18 +293,18 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                   <div className="space-y-1">
                     {friends.map((friend, index) => (
                       <div 
-                        key={friend.friendId || friend.userId || `friend-${index}`}
+                        key={friend.uid || friend.friendId || friend.userId || `friend-${index}`} 
                         className="flex items-center justify-between p-2 rounded-lg hover:bg-[#18181b] transition-all group"
                       >
                         <div 
                           className="flex items-center gap-2 flex-1 cursor-pointer"
-                          onClick={() => setShowUserProfile(friend.friendId)}
+                          onClick={() => setShowUserProfile(friend.uid)}
                         >
                           <div className="relative">
                             {friend.photoURL ? (
                               <Image
                                 src={friend.photoURL}
-                                alt={friend.displayName || 'User'}
+                                alt={friend.displayName}
                                 width={32}
                                 height={32}
                                 className="rounded-full"
@@ -324,7 +324,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                         
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => handleStartChat(friend.friendId)}
+                            onClick={() => handleStartChat(friend.uid)}
                             className="p-1.5 rounded hover:bg-[#27272a] transition-colors text-[#71717a] hover:text-[#818cf8]"
                             title="Start Chat"
                           >
@@ -333,7 +333,7 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                             </svg>
                           </button>
                           <button
-                            onClick={() => handleRemoveFriend(friend.friendId)}
+                            onClick={() => handleRemoveFriend(friend.uid)}
                             className="p-1.5 rounded hover:bg-[#27272a] transition-colors text-[#71717a] hover:text-[#ef4444] opacity-0 group-hover:opacity-100"
                             title="Remove Friend"
                           >

@@ -100,7 +100,7 @@ export const removeFriend = async (userId: string, friendId: string): Promise<vo
 export const getFriends = async (userId: string): Promise<Friend[]> => {
   try {
     const friends = await friendService.getFriends(userId);
-    return friends.map((f: any) => ({
+    return friends.map(f => ({
       userId: f.userId,
       friendId: f.friendId,
       displayName: f.displayName,
@@ -121,7 +121,7 @@ export const getFriends = async (userId: string): Promise<Friend[]> => {
 export const getPendingRequests = async (userId: string): Promise<FriendRequest[]> => {
   try {
     const requests = await friendService.getPendingRequests(userId);
-    return requests.map((r: any) => ({
+    return requests.map(r => ({
       id: r.requestId,
       requestId: r.requestId,
       fromUserId: r.fromUserId,
@@ -142,7 +142,7 @@ export const getPendingRequests = async (userId: string): Promise<FriendRequest[
 export const checkIfFriends = async (userId: string, friendId: string): Promise<boolean> => {
   try {
     const friends = await getFriends(userId);
-    return friends.some((f: Friend) => f.userId === friendId || f.friendId === friendId);
+    return friends.some(f => f.userId === friendId || f.friendId === friendId);
   } catch (error) {
     console.error('Error checking friendship:', error);
     return false;
@@ -168,14 +168,14 @@ export const getFriendStatus = async (
     const receivedRequests = await friendService.getPendingRequests(userId);
 
     const hasSentRequest = sentRequests.some(
-      (r: any) => r.fromUserId === userId && r.toUserId === targetUserId && r.status === 'pending'
+      r => r.fromUserId === userId && r.toUserId === targetUserId && r.status === 'pending'
     );
     if (hasSentRequest) {
       return 'pending_sent';
     }
 
     const hasReceivedRequest = receivedRequests.some(
-      (r: any) => r.fromUserId === targetUserId && r.toUserId === userId && r.status === 'pending'
+      r => r.fromUserId === targetUserId && r.toUserId === userId && r.status === 'pending'
     );
     if (hasReceivedRequest) {
       return 'pending_received';
@@ -202,7 +202,7 @@ export const searchUsersByHandle = async (
 
     const { userService } = await import('./dynamodb-client');
     const users = await userService.searchUsers(searchTerm);
-    return users.filter((u: any) => u.userId !== currentUserId);
+    return users.filter(u => u.userId !== currentUserId);
   } catch (error) {
     console.error('Error searching users:', error);
     return [];
