@@ -1,6 +1,6 @@
 // Unified Auth Service - AWS Cognito only (using direct API)
 import * as auth from './auth';
-import { isAWSConfigured } from './config';
+import { isAWSConfigured } from './unified-config';
 
 // Unified user type
 export interface UnifiedAuthUser {

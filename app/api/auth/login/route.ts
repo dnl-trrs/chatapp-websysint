@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAWSCredentials, getAWSRegion } from '@/lib/aws/server-config';
+import { COGNITO_CONFIG, getAWSRegion, getServerAWSCredentials } from '@/lib/aws/unified-config';
 import { 
   CognitoIdentityProviderClient, 
   InitiateAuthCommand
@@ -13,11 +13,12 @@ function generateSecretHash(username: string, clientId: string, clientSecret: st
   return hmac.digest('base64');
 }
 
+const credentials = getServerAWSCredentials();
 const cognitoClient = new CognitoIdentityProviderClient({
   region: getAWSRegion(),
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
+    accessKeyId: credentials.accessKeyId,
+    secretAccessKey: credentials.secretAccessKey
   }
 });
 
@@ -32,7 +33,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '';
+    const clientId = COGNITO_CONFIG.clientId;
     const clientSecret = process.env.COGNITO_CLIENT_SECRET || '';
 
     if (!clientSecret) {

@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand, GetCommand, ScanCommand, UpdateCommand } from '@aws-sdk/lib-dynamodb';
-import { getAWSCredentials, getAWSRegion } from '@/lib/aws/server-config';
+import { DYNAMODB_CONFIG, getAWSRegion, getServerAWSCredentials } from '@/lib/aws/unified-config';
 
 // Initialize DynamoDB client with server-side credentials
+const credentials = getServerAWSCredentials();
 const client = new DynamoDBClient({
   region: getAWSRegion(),
-  credentials: getAWSCredentials()
+  credentials
 });
 
 const docClient = DynamoDBDocumentClient.from(client);
-const CONVERSATIONS_TABLE = 'chatapp-conversations';
-const USERS_TABLE = 'chatapp-users';
+const CONVERSATIONS_TABLE = DYNAMODB_CONFIG.tables.conversations;
+const USERS_TABLE = DYNAMODB_CONFIG.tables.users;
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;

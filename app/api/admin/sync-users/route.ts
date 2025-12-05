@@ -1,28 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAWSCredentials, getAWSRegion } from '@/lib/aws/server-config';
+import { COGNITO_CONFIG, DYNAMODB_CONFIG, getAWSRegion, getServerAWSCredentials } from '@/lib/aws/unified-config';
 import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
+const credentials = getServerAWSCredentials();
+
 const cognitoClient = new CognitoIdentityProviderClient({
   region: getAWSRegion(),
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  credentials
 });
 
 const dbClient = new DynamoDBClient({
   region: getAWSRegion(),
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  credentials
 });
 
 const docClient = DynamoDBDocumentClient.from(dbClient);
-const USERS_TABLE = 'chatapp-users';
-const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || '';
+const USERS_TABLE = DYNAMODB_CONFIG.tables.users;
+const USER_POOL_ID = COGNITO_CONFIG.userPoolId;
 
 export async function POST(request: NextRequest) {
   try {
