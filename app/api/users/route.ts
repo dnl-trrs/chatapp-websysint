@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
-// Initialize DynamoDB client with server-side credentials
+// Initialize DynamoDB client with server-side credentials (try Amplify first, then fallback)
 const client = new DynamoDBClient({
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-  }
+    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
+  },
+  maxAttempts: 2
 });
 
 const docClient = DynamoDBDocumentClient.from(client);
@@ -48,8 +49,9 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
   } catch (error) {
-    console.error('Error in user API:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    const err = error as any;
+    console.error('Error in user API:', err?.code || err?.message || error);
+    return NextResponse.json({ error: 'Internal server error', code: err?.code }, { status: 500 });
   }
 }
 

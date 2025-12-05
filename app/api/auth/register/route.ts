@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CognitoIdentityProviderClient, SignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
-import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
+import { DynamoDBDocumentClient, PutCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 import { createHmac } from 'crypto';
 
 export const runtime = 'nodejs';
@@ -19,7 +19,8 @@ const dbClient = new DynamoDBClient({
   credentials: {
     accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
     secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  },
+  maxAttempts: 3
 });
 
 const docClient = DynamoDBDocumentClient.from(dbClient);
@@ -73,38 +74,73 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user in DynamoDB
-    try {
-      const putCommand = new PutCommand({
-        TableName: USERS_TABLE,
-        Item: {
-          userId,
-          email,
-          displayName: username,
-          username: username.toLowerCase(),
-          photoURL: '',
-          bio: '',
-          status: 'online',
-          emailVerified: false,
-          createdAt: Date.now(),
-          updatedAt: Date.now()
+    // Create user in DynamoDB with retry
+    let userCreated = false;
+    let userData = null;
+    
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const putCommand = new PutCommand({
+          TableName: USERS_TABLE,
+          Item: {
+            userId,
+            email,
+            displayName: username,
+            username: username.toLowerCase(),
+            photoURL: '',
+            bio: '',
+            status: 'online',
+            emailVerified: false,
+            createdAt: Date.now(),
+            updatedAt: Date.now()
+          }
+        });
+        await docClient.send(putCommand);
+        
+        // Verify write by reading back
+        const getCommand = new GetCommand({
+          TableName: USERS_TABLE,
+          Key: { userId }
+        });
+        const getResult = await docClient.send(getCommand);
+        userData = getResult.Item;
+        
+        if (userData && userData.displayName && userData.username) {
+          userCreated = true;
+          console.log('User created and verified in DynamoDB:', userData);
+          break;
+        } else {
+          console.warn('User created but fields missing, attempt', attempt + 1);
+          if (attempt === 0) {
+            // Wait before retry
+            await new Promise(resolve => setTimeout(resolve, 300));
+          }
         }
-      });
-      await docClient.send(putCommand);
-    } catch (dbErr) {
-      console.error('Error creating user in DynamoDB:', dbErr);
-      // Don't fail - user is already in Cognito
+      } catch (dbErr: any) {
+        console.error('Error creating user in DynamoDB (attempt ' + (attempt + 1) + '):', dbErr?.code || dbErr);
+        if (attempt === 0 && dbErr?.name === 'ProvisionedThroughputExceededException') {
+          // Retry on throughput error
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+      }
     }
 
     return NextResponse.json(
-      { userId, email, username },
+      { 
+        userId, 
+        email, 
+        username,
+        displayName: username,
+        userCreated,
+        userData
+      },
       { status: 201 }
     );
   } catch (error) {
     console.error('Registration error:', error);
     const err = error as any;
     return NextResponse.json(
-      { error: err.message || 'Registration failed' },
+      { error: err.message || 'Registration failed', code: err?.code },
       { status: 500 }
     );
   }

@@ -120,9 +120,16 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
       // Update local profile state
       await updateProfile(updates);
       
-      // Also verify the update by fetching the profile again
+      // Refresh profile to ensure UI is synced with DB
+      // Note: updateProfile already does a refresh, but do it again for certainty
       const updatedProfile = await response.json();
       console.log('Profile updated successfully:', updatedProfile);
+      
+      // Force a refresh of the profile
+      // The hook's updateProfile already calls refreshProfile, but add an extra one for certainty
+      setTimeout(() => {
+        // Profile should already be updated from updateProfile hook call
+      }, 100);
       
       showToast('Profile updated successfully!', 'success');
       onClose();

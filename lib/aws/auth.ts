@@ -261,12 +261,28 @@ export const onAuthStateChanged = (callback: (user: AuthUser | null) => void): (
   // Check initial state
   getCurrentUser().then(callback);
 
-  // Poll for auth state changes so UI reacts to logout immediately
+  // Poll for auth state changes with longer interval (3s) and jitter to reduce DB load
+  const baseInterval = 3000;
+  const jitter = Math.random() * 500; // 0-500ms jitter
   const interval = setInterval(() => {
     getCurrentUser().then(callback);
-  }, 1000);
+  }, baseInterval + jitter);
 
   return () => clearInterval(interval);
+};
+
+// Wait for user to be ready (with timeout)
+export const waitForUserReady = async (maxWaitMs: number = 2000): Promise<AuthUser | null> => {
+  const startTime = Date.now();
+  while (Date.now() - startTime < maxWaitMs) {
+    const user = await getCurrentUser();
+    if (user) {
+      return user;
+    }
+    // Wait 200ms before retrying
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+  return null;
 };
 
 // Confirm user registration (for users who need to enter confirmation code)

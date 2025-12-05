@@ -6,15 +6,23 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 const s3Client = new S3Client({
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
   credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-  }
+    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
+    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
+  },
+  maxAttempts: 2
 });
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'chatapp-uploads';
+const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2';
 
 export async function POST(request: NextRequest) {
   try {
+    // Validate bucket and credentials
+    if (!BUCKET_NAME) {
+      console.error('S3_BUCKET_NAME not configured');
+      return NextResponse.json({ error: 'S3 bucket not configured' }, { status: 500 });
+    }
+    
     const formData = await request.formData();
     const file = formData.get('file') as File;
     const userId = formData.get('userId') as string;
@@ -22,6 +30,11 @@ export async function POST(request: NextRequest) {
 
     if (!file || !userId) {
       return NextResponse.json({ error: 'Missing file or userId' }, { status: 400 });
+    }
+    
+    // Validate file size
+    if (file.size > 10 * 1024 * 1024) {
+      return NextResponse.json({ error: 'File too large (max 10MB)' }, { status: 400 });
     }
 
     // Generate unique filename
@@ -42,15 +55,17 @@ export async function POST(request: NextRequest) {
     await s3Client.send(command);
 
     // Return the public URL
-    const publicUrl = `https://${BUCKET_NAME}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${fileName}`;
+    const publicUrl = `https://${BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/${fileName}`;
+    console.log('File uploaded successfully:', { fileName, url: publicUrl });
     
     return NextResponse.json({ 
       url: publicUrl,
       key: fileName 
     });
   } catch (error) {
-    console.error('Error uploading file:', error);
-    return NextResponse.json({ error: 'Failed to upload file' }, { status: 500 });
+    const err = error as any;
+    console.error('Error uploading file:', err?.code || err?.message || error);
+    return NextResponse.json({ error: 'Failed to upload file', code: err?.code }, { status: 500 });
   }
 }
 
@@ -77,7 +92,7 @@ export async function GET(request: NextRequest) {
     });
 
     const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 3600 });
-    const publicUrl = `https://${BUCKET_NAME}.s3.${process.env.NEXT_PUBLIC_AWS_REGION}.amazonaws.com/${key}`;
+    const publicUrl = `https://${BUCKET_NAME}.s3.${AWS_REGION}.amazonaws.com/${key}`;
 
     return NextResponse.json({
       signedUrl,
@@ -85,8 +100,9 @@ export async function GET(request: NextRequest) {
       key
     });
   } catch (error) {
-    console.error('Error generating presigned URL:', error);
-    return NextResponse.json({ error: 'Failed to generate upload URL' }, { status: 500 });
+    const err = error as any;
+    console.error('Error generating presigned URL:', err?.code || err?.message || error);
+    return NextResponse.json({ error: 'Failed to generate upload URL', code: err?.code }, { status: 500 });
   }
 }
 
@@ -107,7 +123,8 @@ export async function DELETE(request: NextRequest) {
     await s3Client.send(command);
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting file:', error);
-    return NextResponse.json({ error: 'Failed to delete file' }, { status: 500 });
+    const err = error as any;
+    console.error('Error deleting file:', err?.code || err?.message || error);
+    return NextResponse.json({ error: 'Failed to delete file', code: err?.code }, { status: 500 });
   }
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { waitForUserReady } from "@/lib/aws/auth";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -39,10 +40,20 @@ export default function LoginPage() {
         localStorage.setItem('refreshToken', refreshToken);
       }
 
-      // Navigate to chat
-      setTimeout(() => {
+      // Wait for user context to be ready before navigating
+      try {
+        const user = await waitForUserReady(2000);
+        if (user) {
+          console.log('User ready, navigating to chat:', user);
+          router.push("/chat");
+        } else {
+          console.warn('User not ready within timeout, navigating anyway');
+          router.push("/chat");
+        }
+      } catch (err) {
+        console.error('Error waiting for user:', err);
         router.push("/chat");
-      }, 100);
+      }
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err.message || "Failed to log in. Please check your credentials.");
