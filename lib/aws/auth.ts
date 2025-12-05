@@ -19,6 +19,7 @@ export interface AuthUser {
   uid: string;
   email: string | null;
   displayName: string | null;
+  username: string | null;
   photoURL: string | null;
   emailVerified: boolean;
 }
@@ -86,6 +87,7 @@ export const signInUser = async (
           uid: userId,
           email: payload['email'],
           displayName: userData.displayName || payload['name'],
+          username: userData.username || null,
           photoURL: userData.photoURL || null,
           emailVerified: payload['email_verified'] || false
         };
@@ -171,6 +173,7 @@ export const getCurrentUser = async (): Promise<AuthUser | null> => {
               uid: userId,
               email: payload['email'],
               displayName: userData?.displayName || payload['name'] || null,
+              username: userData?.username || null,
               photoURL: userData?.photoURL || null,
               emailVerified: payload['email_verified'] || false
             });
@@ -213,6 +216,7 @@ export const getCurrentUser = async (): Promise<AuthUser | null> => {
         uid: userId,
         email: payload['email'],
         displayName: userData?.displayName || payload['name'] || null,
+        username: userData?.username || null,
         photoURL: userData?.photoURL || null,
         emailVerified: payload['email_verified'] || false
       });
