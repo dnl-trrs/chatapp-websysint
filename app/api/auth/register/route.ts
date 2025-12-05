@@ -3,21 +3,9 @@ import { getAWSCredentials, getAWSRegion } from '@/lib/aws/server-config';
 import { CognitoIdentityProviderClient, SignUpCommand, AdminConfirmSignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
-import { createHmac } from 'crypto';
-
-// Generate SECRET_HASH for Cognito
-function generateSecretHash(username: string, clientId: string, clientSecret: string): string {
-  const hmac = createHmac('sha256', clientSecret);
-  hmac.update(username + clientId);
-  return hmac.digest('base64');
-}
-
 const dbClient = new DynamoDBClient({
   region: getAWSRegion(),
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  credentials: getAWSCredentials()
 });
 
 const docClient = DynamoDBDocumentClient.from(dbClient);
@@ -25,10 +13,7 @@ const USERS_TABLE = 'chatapp-users';
 
 const cognitoClient = new CognitoIdentityProviderClient({
   region: getAWSRegion(),
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  credentials: getAWSCredentials()
 });
 
 export async function POST(request: NextRequest) {
@@ -44,17 +29,16 @@ export async function POST(request: NextRequest) {
 
     const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '';
     const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || '';
-    const clientSecret = process.env.COGNITO_CLIENT_SECRET || '';
 
-    // Generate SECRET_HASH if client secret is configured
-    const secretHash = clientSecret ? generateSecretHash(email, clientId, clientSecret) : undefined;
+    // Generate a unique non-email username for Cognito (since pool uses email alias)
+    const cognitoUsername = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    // Use email as Cognito username
+    // Use generated username for Cognito (users will login with email)
     const signUpCommand = new SignUpCommand({
       ClientId: clientId,
-      Username: email,
+      Username: cognitoUsername,
       Password: password,
-      SecretHash: secretHash,
+      // No SecretHash needed for public client
       UserAttributes: [
         { Name: 'email', Value: email },
         { Name: 'name', Value: username }
@@ -75,7 +59,7 @@ export async function POST(request: NextRequest) {
     try {
       const confirmCommand = new AdminConfirmSignUpCommand({
         UserPoolId: userPoolId,
-        Username: email
+        Username: cognitoUsername
       });
       await cognitoClient.send(confirmCommand);
     } catch (confirmErr) {
