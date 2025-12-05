@@ -1,0 +1,66 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DynamoDBTableAccess",
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:GetItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:Query",
+        "dynamodb:Scan",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:BatchGetItem",
+        "dynamodb:DescribeTable",
+        "dynamodb:DescribeTimeToLive",
+        "dynamodb:ListTables"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-users",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-conversations",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-messages",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-friends",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-friend-requests",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-users/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-conversations/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-messages/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-friends/index/*",
+        "arn:aws:dynamodb:us-east-2:*:table/chatapp-friend-requests/index/*"
+      ]
+    },
+    {
+      "Sid": "CognitoAccess",
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:AdminInitiateAuth",
+        "cognito-idp:AdminCreateUser",
+        "cognito-idp:AdminDeleteUser",
+        "cognito-idp:AdminUpdateUserAttributes",
+        "cognito-idp:AdminGetUser",
+        "cognito-idp:AdminConfirmSignUp",
+        "cognito-idp:ListUsers",
+        "cognito-idp:AdminSetUserPassword",
+        "cognito-idp:AdminResetUserPassword"
+      ],
+      "Resource": [
+        "arn:aws:cognito-idp:us-east-2:*:userpool/*"
+      ]
+    },
+    {
+      "Sid": "S3Access",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::chatapp-*/*",
+        "arn:aws:s3:::chatapp-*"
+      ]
+    }
+  ]
+}

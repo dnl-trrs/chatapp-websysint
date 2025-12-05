@@ -2,8 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { getUserProfile } from '@/lib/userService';
-import { getFriendStatus, sendFriendRequest, removeFriend, acceptFriendRequest } from '@/lib/friendService';
+import { userService } from '@/lib/aws/dynamodb-client';
+import { getFriendStatus, sendFriendRequest, removeFriend, acceptFriendRequest, getPendingRequests } from '@/lib/friendService';
 import { createOrGetDMConversation } from '@/lib/conversationService';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -41,16 +41,49 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     if (isOpen && userId) {
       loadUserProfile();
       checkFriendStatus();
+      
+      // Poll for profile updates every 2 seconds while card is open
+      const pollInterval = setInterval(() => {
+        loadUserProfile();
+      }, 2000);
+      
+      return () => clearInterval(pollInterval);
     }
   }, [isOpen, userId]);
 
   const loadUserProfile = async () => {
+    setError(''); // Clear any previous errors
+    console.log('Loading profile for userId:', userId);
+    
     try {
-      const userProfile = await getUserProfile(userId);
-      setProfile(userProfile);
-    } catch (err) {
+      const userProfile = await userService.getUser(userId);
+      console.log('User profile response:', userProfile);
+      
+      if (userProfile) {
+        setProfile({
+          uid: userProfile.userId || userProfile.uid,
+          displayName: userProfile.displayName || 'Unknown User',
+          username: userProfile.username || 'unknown',
+          bio: userProfile.bio,
+          photoURL: userProfile.photoURL,
+          createdAt: userProfile.createdAt || userProfile.updatedAt
+        });
+      } else {
+        console.warn('User profile not found for userId:', userId);
+        setError('User profile not found');
+      }
+    } catch (err: any) {
       console.error('Error loading user profile:', err);
-      setError('Failed to load user profile');
+      console.error('Error details:', { userId, error: err.message });
+      
+      // More specific error messages
+      if (err.message?.includes('permissions') || err.message?.includes('unauthorized')) {
+        setError('You do not have permission to view this profile');
+      } else if (err.message?.includes('network') || err.message?.includes('fetch')) {
+        setError('Network error. Please check your connection.');
+      } else {
+        setError('Unable to load profile. Please try again.');
+      }
     }
   };
 
@@ -86,7 +119,13 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     setLoading(true);
     setError('');
     try {
-      await acceptFriendRequest(userId, user.uid);
+      // Get pending requests to find the request ID
+      const requests = await getPendingRequests(user.uid);
+      const request = requests.find(r => r.fromUserId === userId);
+      if (!request || !request.id) {
+        throw new Error('Friend request not found');
+      }
+      await acceptFriendRequest(request.id);
       setFriendStatus('friends');
     } catch (err: any) {
       setError(err.message || 'Failed to accept friend request');
@@ -132,9 +171,14 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     if (!timestamp) return 'Unknown';
     
     let date: Date;
-    if (timestamp.toDate) {
+    // Handle DynamoDB numeric timestamp (milliseconds since epoch)
+    if (typeof timestamp === 'number') {
+      date = new Date(timestamp);
+    } else if (timestamp.toDate) {
+      // Firebase Timestamp
       date = timestamp.toDate();
     } else if (timestamp.seconds) {
+      // Firebase Timestamp with seconds
       date = new Date(timestamp.seconds * 1000);
     } else {
       date = new Date(timestamp);

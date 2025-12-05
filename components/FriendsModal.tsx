@@ -60,8 +60,8 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
       try {
         const results = await searchUsersByHandle(searchTerm, user.uid);
         // Filter out existing friends
-        const friendIds = friends.map(f => f.uid);
-        const filteredResults = results.filter(r => !friendIds.includes(r.id));
+        const friendIds = friends.map(f => f.friendId || f.userId);
+        const filteredResults = results.filter(r => !friendIds.includes(r.id || r.userId));
         setSearchResults(filteredResults);
       } catch (error) {
         console.error('Error searching users:', error);
@@ -92,7 +92,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
     try {
       const requests = await getPendingRequests(user.uid);
       // Filter to only show incoming requests (where user is the recipient)
-      const incomingRequests = requests.filter(req => req.toUid === user.uid);
+      const incomingRequests = requests.filter(req => req.toUserId === user.uid);
       setPendingRequests(incomingRequests);
     } catch (error) {
       console.error('Error loading pending requests:', error);
@@ -118,7 +118,8 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
 
   const handleAcceptRequest = async (request: any) => {
     try {
-      await acceptFriendRequest(request.fromUid, request.toUid);
+      const requestId = request.id || request.requestId;
+      await acceptFriendRequest(requestId);
       await loadFriends();
       await loadPendingRequests();
       showToast('Friend request accepted!', 'success');
@@ -278,9 +279,11 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {friends.map(friend => (
+                  {friends.map(friend => {
+                    const friendId = friend.friendId || friend.userId;
+                    return (
                     <div 
-                      key={friend.uid} 
+                      key={friendId} 
                       className="flex items-center justify-between p-3 rounded-lg hover:bg-[#18181b] transition-all group"
                     >
                       <div className="flex items-center gap-3">
@@ -288,7 +291,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
                           {friend.photoURL ? (
                             <Image
                               src={friend.photoURL}
-                              alt={friend.displayName}
+                              alt={friend.displayName || 'Friend'}
                               width={40}
                               height={40}
                               className="rounded-full"
@@ -308,7 +311,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
                       
                       <div className="flex items-center gap-2">
                         <button
-                          onClick={() => handleStartChat(friend.uid)}
+                          onClick={() => handleStartChat(friendId)}
                           className="p-2 rounded-lg hover:bg-[#27272a] transition-colors text-[#71717a] hover:text-[#818cf8]"
                           title="Start Chat"
                         >
@@ -317,7 +320,7 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
                           </svg>
                         </button>
                         <button
-                          onClick={() => handleRemoveFriend(friend.uid)}
+                          onClick={() => handleRemoveFriend(friendId)}
                           className="p-2 rounded-lg hover:bg-[#27272a] transition-colors text-[#71717a] hover:text-[#ef4444] opacity-0 group-hover:opacity-100"
                           title="Remove Friend"
                         >
@@ -328,7 +331,8 @@ const FriendsModal: React.FC<FriendsModalProps> = ({ isOpen, onClose, onStartCha
                         </button>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

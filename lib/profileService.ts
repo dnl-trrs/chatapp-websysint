@@ -1,7 +1,5 @@
-import { storage, db, auth } from './firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
-import { updateProfile as updateAuthProfile } from 'firebase/auth';
+// Use API endpoint for uploads and DynamoDB for profile data
+import { userService } from './aws/dynamodb-client';
 
 interface ProfileUpdateData {
   displayName?: string;
@@ -11,13 +9,12 @@ interface ProfileUpdateData {
 }
 
 /**
- * Upload a profile picture to Firebase Storage
+ * Upload a profile picture to AWS S3 via API endpoint
  */
 export const uploadProfilePicture = async (
   userId: string,
   file: File
 ): Promise<string> => {
-
   // Validate file
   if (file.size > 5 * 1024 * 1024) {
     throw new Error('Profile picture must be less than 5MB');
@@ -29,53 +26,31 @@ export const uploadProfilePicture = async (
   }
 
   try {
-    // Generate unique filename with timestamp
-    const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `profilePictures/${userId}/avatar_${timestamp}.${fileExtension}`;
-    const storageRef = ref(storage, fileName);
+    // Upload via API endpoint
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('userId', userId);
+    formData.append('type', 'profile');
 
-    // Upload with metadata
-    const metadata = {
-      contentType: file.type,
-      customMetadata: {
-        uploadedBy: userId,
-        uploadedAt: new Date().toISOString()
-      }
-    };
+    const response = await fetch('/api/upload', {
+      method: 'POST',
+      body: formData
+    });
 
-    const snapshot = await uploadBytes(storageRef, file, metadata);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    return downloadURL;
+    if (!response.ok) {
+      throw new Error('Upload failed');
+    }
+
+    const data = await response.json();
+    return data.url;
   } catch (error: any) {
     console.error('Error uploading profile picture:', error);
-    console.error('Error details:', {
-      code: error.code,
-      message: error.message,
-      serverResponse: error.serverResponse
-    });
-    
-    // Provide helpful error messages based on common issues
-    if (error.code === 'storage/unauthorized') {
-      throw new Error('You must be logged in to upload a profile picture');
-    } else if (error.code === 'storage/unauthenticated') {
-      throw new Error('Your session has expired. Please log in again');
-    } else if (error.code === 'storage/object-not-found') {
-      throw new Error('Upload failed. Please try again');
-    } else if (error.code === 'storage/bucket-not-found' || error.code === 'storage/unknown') {
-      throw new Error('Firebase Storage is not set up. Please contact support or see console for setup instructions');
-    } else if (error.message?.includes('CORS')) {
-      throw new Error('Storage configuration issue. Please contact support');
-    } else if (error.message?.includes('Failed to fetch')) {
-      throw new Error('Network error. Please check your connection and try again');
-    }
-    
     throw new Error(`Failed to upload profile picture: ${error.message || error}`);
   }
 };
 
 /**
- * Update user profile in both Firestore and Firebase Auth
+ * Update user profile in DynamoDB
  */
 export const updateUserProfileComplete = async (
   userId: string,
@@ -90,41 +65,19 @@ export const updateUserProfileComplete = async (
       photoURL = await uploadProfilePicture(userId, profilePictureFile);
     }
 
-    // Prepare Firestore update data
-    const firestoreUpdateData: any = {
+    // Prepare DynamoDB update data
+    const updateData: any = {
       ...updates,
-      updatedAt: serverTimestamp()
+      updatedAt: Date.now()
     };
 
     // Include photoURL if we have one
     if (photoURL !== undefined) {
-      firestoreUpdateData.photoURL = photoURL || '';
+      updateData.photoURL = photoURL || '';
     }
 
-    // Update Firestore document
-    await updateDoc(doc(db, 'users', userId), firestoreUpdateData);
-
-    // Update Firebase Auth profile if current user
-    if (auth.currentUser && auth.currentUser.uid === userId) {
-      const authUpdateData: any = {};
-      
-      if (updates.displayName !== undefined) {
-        authUpdateData.displayName = updates.displayName;
-      }
-      
-      if (photoURL !== undefined) {
-        authUpdateData.photoURL = photoURL || null;
-      }
-
-      if (Object.keys(authUpdateData).length > 0) {
-        try {
-          await updateAuthProfile(auth.currentUser, authUpdateData);
-        } catch (authError) {
-          console.error('Error updating Firebase Auth profile:', authError);
-          // Don't throw - Firestore update was successful
-        }
-      }
-    }
+    // Update DynamoDB user document
+    await userService.updateUser(userId, updateData);
   } catch (error) {
     console.error('Error updating user profile:', error);
     throw error;

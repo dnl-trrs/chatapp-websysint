@@ -58,7 +58,7 @@ const GroupChatManageModal: React.FC<GroupChatManageModalProps> = ({
       const friends = await getFriends(currentUserId);
       // Filter out friends who are already in the group
       const filtered = groupChat.participantIds 
-        ? friends.filter(friend => !groupChat.participantIds?.includes(friend.uid))
+        ? friends.filter(friend => !groupChat.participantIds?.includes(friend.friendId || friend.userId))
         : friends;
       setAvailableFriends(filtered);
     } catch (err) {
@@ -425,19 +425,21 @@ const GroupChatManageModal: React.FC<GroupChatManageModalProps> = ({
                         {searchQuery ? 'No friends found' : 'No friends available to invite'}
                       </p>
                     ) : (
-                      filteredFriends.map(friend => (
+                      filteredFriends.map(friend => {
+                        const friendId = friend.friendId || friend.userId;
+                        return (
                         <label
-                          key={friend.uid}
+                          key={friendId}
                           className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#27272a] cursor-pointer"
                         >
                           <input
                             type="checkbox"
-                            checked={selectedFriends.includes(friend.uid)}
+                            checked={selectedFriends.includes(friendId)}
                             onChange={(e) => {
                               if (e.target.checked) {
-                                setSelectedFriends([...selectedFriends, friend.uid]);
+                                setSelectedFriends([...selectedFriends, friendId]);
                               } else {
-                                setSelectedFriends(selectedFriends.filter(id => id !== friend.uid));
+                                setSelectedFriends(selectedFriends.filter(id => id !== friendId));
                               }
                             }}
                             className="w-4 h-4 rounded border-[#27272a] bg-[#18181b] text-[#818cf8] focus:ring-[#818cf8]"
@@ -447,7 +449,8 @@ const GroupChatManageModal: React.FC<GroupChatManageModalProps> = ({
                             <p className="text-xs text-[#71717a]">@{friend.username}</p>
                           </div>
                         </label>
-                      ))
+                        );
+                      })
                     )}
                   </div>
                 </div>

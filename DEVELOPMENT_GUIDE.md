@@ -1,162 +1,200 @@
-# Chat App Development Guide
+# Development Guide
 
-## Project Overview
-A streamlined real-time messaging application built with Next.js 14, TypeScript, and Tailwind CSS, focusing on direct messaging, group chats, and social features.
+This guide covers local development setup and AWS configuration for the ChatApp project.
 
-## Current Development State
+## Local Development Setup
 
-### ✅ Completed Features
-- **Authentication**: Email/password auth with unique usernames and display names
-- **Direct Messaging**: Real-time DM conversations between users
-- **Group Chats**: Create and manage group conversations (up to 10 participants)
-- **Friend System**: Send requests, search users, manage friendships
-- **User Profiles**: Customizable profiles with bio and avatar support
-- **Typing Indicators**: Real-time typing status in conversations
-- **UI/UX**: Modern dark theme with glass morphism effects
+### Prerequisites
 
-### 🚧 In Progress
-- AWS backend migration
-- Enhanced message features (reactions, replies)
-- Notification system improvements
+- Node.js 18 or higher
+- npm or yarn
+- Git
+- An AWS account with appropriate permissions
 
-### 📝 Planned Features
-- AWS Lambda functions for backend logic
-- DynamoDB for data storage
-- S3 for file/image uploads
-- CloudFront CDN for assets
-- API Gateway for REST endpoints
+### Installation
 
-## Quick Setup
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd chatapp-websysint
+   ```
 
-### 1. Firebase Console Configuration
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
 
-#### Enable Services
-1. **Authentication**: Enable Email/Password
-2. **Firestore**: Create database in production mode
-3. **Storage**: Enable (for future use)
+3. **Set up environment variables**
+   - Copy `.env.example` to `.env.local`
+   - Fill in your AWS credentials and configuration
 
-#### Deploy Security Rules
+4. **Start the development server**
+   ```bash
+   npm run dev
+   ```
+
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### Available Scripts
+
+- `npm run dev` - Start development server with hot reload
+- `npm run build` - Build the project for production
+- `npm run start` - Start production server
+- `npm run lint` - Run ESLint to check code quality
+
+## AWS Configuration
+
+### Required AWS Services
+
+#### 1. Cognito User Pool
+- Create a user pool for authentication
+- Configure app client with:
+  - Client ID
+  - User Pool ID
+  - Identity Pool ID
+
+#### 2. DynamoDB Tables
+Create the following tables with the specified schemas:
+
+**chatapp-users**
+- Partition Key: `userId` (String)
+- Attributes: email, displayName, username, photoURL, createdAt, updatedAt, status
+
+**chatapp-conversations**
+- Partition Key: `conversationId` (String)
+- Attributes: type, participants, name, icon, lastMessage, createdAt, updatedAt, createdBy, hiddenBy
+
+**chatapp-messages**
+- Partition Key: `conversationId` (String)
+- Sort Key: `messageId` (String)
+- Attributes: senderId, content, timestamp, readBy, editedAt
+
+**chatapp-friends**
+- Partition Key: `userId` (String)
+- Sort Key: `friendId` (String)
+- Attributes: createdAt, displayName, photoURL
+
+**chatapp-friend-requests**
+- Partition Key: `requestId` (String)
+- Attributes: fromUserId, toUserId, status, createdAt, updatedAt
+
+#### 3. S3 Bucket
+- Create an S3 bucket for file uploads
+- Enable CORS with proper settings
+- Configure bucket policy for public read access on uploaded files
+
+#### 4. IAM User/Credentials
+Create IAM credentials with permissions for:
+- DynamoDB: Read/Write on all ChatApp tables
+- S3: Put/Get/Delete objects on the chatapp bucket
+- Cognito: Read access to user pools
+
+### Environment Variables
+
+Required environment variables for development (`.env.local`):
+
+```env
+# AWS Configuration
+NEXT_PUBLIC_AWS_REGION=us-east-2
+NEXT_PUBLIC_COGNITO_USER_POOL_ID=<your-pool-id>
+NEXT_PUBLIC_COGNITO_CLIENT_ID=<your-client-id>
+NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID=<your-identity-pool-id>
+
+# DynamoDB Tables
+NEXT_PUBLIC_DYNAMODB_USERS_TABLE=chatapp-users
+NEXT_PUBLIC_DYNAMODB_CONVERSATIONS_TABLE=chatapp-conversations
+NEXT_PUBLIC_DYNAMODB_MESSAGES_TABLE=chatapp-messages
+NEXT_PUBLIC_DYNAMODB_FRIENDS_TABLE=chatapp-friends
+NEXT_PUBLIC_DYNAMODB_FRIEND_REQUESTS_TABLE=chatapp-friend-requests
+
+# S3
+NEXT_PUBLIC_S3_BUCKET=your-bucket-name
+
+# Server-side Credentials (keep private - never commit!)
+AWS_ACCESS_KEY_ID=<your-access-key>
+AWS_SECRET_ACCESS_KEY=<your-secret-key>
+AWS_ACCOUNT_ID=<your-account-id>
+```
+
+## Project Architecture
+
+### Frontend (Next.js)
+- Built with React 19 and TypeScript
+- Tailwind CSS for styling
+- Lucide React for icons
+- Custom hooks for state management
+
+### Backend (Next.js API Routes)
+- Located in `app/api/*`
+- Uses AWS SDK for DynamoDB and S3
+- Handles authentication, conversations, messages, friends, and file uploads
+
+### Services Layer (`lib/`)
+- `conversationService.ts` - Conversation operations (maps to AWS service)
+- `friendService.ts` - Friend management (maps to AWS service)
+- `profileService.ts` - Profile updates and picture uploads
+- `userService.ts` - User account operations (maps to AWS service)
+- `imageUploadService.ts` - Image file uploads to S3
+- `typingService.ts` - Typing status indicators
+- `aws/` - AWS-specific implementations using DynamoDB, S3, etc.
+
+## Testing
+
+While the project doesn't have automated tests configured, you can manually test features:
+
+1. **Registration/Login**: Create accounts and verify Cognito authentication
+2. **Friend Management**: Send and accept friend requests
+3. **Direct Messaging**: Create DM conversations with friends
+4. **Group Messaging**: Create group chats with multiple participants
+5. **Profile Pictures**: Upload and verify profile pictures display correctly
+
+## Debugging
+
+### Enable Debug Logging
+Add console.log statements in service files or API routes to see DynamoDB queries and responses.
+
+### Check AWS CloudWatch
+- Review CloudWatch logs for Lambda functions and API Gateway (if used)
+- Check DynamoDB metrics for table performance
+
+### Verify Database State
+Use AWS Console to inspect:
+- DynamoDB items in each table
+- S3 bucket contents
+- Cognito user pool
+
+## Code Style
+
+The project uses:
+- ESLint for code quality
+- TypeScript for type safety
+- Tailwind CSS for styling consistency
+
+Run linting:
 ```bash
-firebase deploy --only firestore:rules,storage:rules
+npm run lint
 ```
 
-#### Required Firestore Indexes
-Create these composite indexes in Firebase Console:
+## Common Issues
 
-1. **Conversations**: `participants` (Arrays) + `updatedAt` (Desc)
-2. **Friend Requests**: `toUid` (Asc) + `status` (Asc)
-3. **Users**: `username` (Asc) for user search functionality
+### "Access Denied" errors
+- Check IAM credentials and permissions
+- Verify AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY are correct
 
-### 2. Local Development
+### DynamoDB item not found
+- Verify table names match environment variables
+- Check item's partition/sort keys in the table
 
-```bash
-# Install dependencies
-npm install
+### Profile pictures not uploading
+- Ensure S3 bucket has CORS enabled
+- Check bucket policy allows public read access
+- Verify NEXT_PUBLIC_S3_BUCKET matches actual bucket name
 
-# Run development server
-npm run dev
+### Authentication failures
+- Verify Cognito user pool credentials
+- Check NEXT_PUBLIC_COGNITO_* environment variables
+- Ensure user is confirmed in Cognito user pool
 
-# Build for production
-npm run build
-```
+## Deployment
 
-## Architecture Decisions
-
-### Real-time Updates
-- Using Firestore `onSnapshot` for servers, channels, and conversations
-- Client-side sorting to avoid index requirements during development
-- Will add `orderBy` clauses once indexes are created
-
-### State Management
-- React Context for authentication
-- Local state for UI components
-- Firestore as single source of truth
-
-### Profile Pictures (Postponed)
-- Base64 implementation ready with compression
-- Stores directly in Firestore (no CORS issues)
-- Max 512KB after compression
-- Future: Move to Firebase Storage with CDN
-
-## Known Issues
-
-### Critical
-1. **Message Updates**: New conversations don't appear for recipients without refresh
-2. **Firestore Indexes**: Missing composite indexes cause console warnings
-
-### Minor
-1. **Friend System**: Accept/reject UI not implemented
-2. **Typing Indicators**: Need "several people typing" aggregation
-3. **Empty States**: Need better UI for no servers/channels
-
-## Common Debugging Commands
-
-```javascript
-// Check auth status
-firebase.auth().currentUser
-
-// Test Firestore connection
-firebase.firestore().collection('users').doc(firebase.auth().currentUser.uid).get()
-
-// Monitor real-time updates
-firebase.firestore().collection('conversations')
-  .where('participants', 'array-contains', firebase.auth().currentUser.uid)
-  .onSnapshot(snapshot => console.log('Conversations:', snapshot.docs.map(d => d.data())))
-```
-
-## Development Workflow
-
-### Before Starting
-1. Check for existing TODO items in code
-2. Review console for any errors/warnings
-3. Ensure dev server is running
-
-### Making Changes
-1. Test in multiple browser tabs (multi-user scenarios)
-2. Check real-time updates work correctly
-3. Verify Firebase rules allow operations
-4. Monitor browser console for errors
-
-### Common Fixes
-- **Hydration Errors**: Add `suppressHydrationWarning` or use `useEffect` for client-only code
-- **Permission Errors**: Check Firestore rules and user authentication
-- **Missing Indexes**: Click console link to auto-create index
-
-## File Structure Summary
-
-```
-/app              - Next.js pages and layouts
-/components       - React components (modals, sidebars, etc.)
-/lib             - Services (Firebase, channels, users, etc.)
-/hooks           - Custom React hooks
-/public          - Static assets
-firestore.rules  - Security rules
-storage.rules    - Storage rules (for future use)
-```
-
-## Next Session Priorities
-
-1. **Fix message real-time updates** for new conversations
-2. **Create Firestore indexes** to enable proper ordering
-3. **Implement friend accept/reject UI** with notifications
-4. **Add server management modal** for better UX
-5. **Clean up empty states** with helpful prompts
-
-## Testing Checklist
-
-- [ ] Register new user with unique username
-- [ ] Create server and channels
-- [ ] Send messages in channels
-- [ ] Start DM conversation
-- [ ] Search and add friends
-- [ ] Test typing indicators
-- [ ] Edit/delete channels
-- [ ] Delete server
-- [ ] Test with multiple users
-
-## Deployment Notes
-
-- Environment variables needed in `.env.local`
-- Firebase project: `chatapp-b58`
-- Deploy rules before testing in production
-- Ensure all indexes are created before launch
+For production deployment, see your hosting provider's documentation (AWS Amplify, Vercel, etc.). Ensure all environment variables are properly set in production environment.
