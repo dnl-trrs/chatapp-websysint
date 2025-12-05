@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, QueryCommand, DeleteCommand, GetCommand } from '@aws-sdk/lib-dynamodb';
 
-// Initialize DynamoDB client with server-side credentials
-const client = new DynamoDBClient({
+// Initialize DynamoDB client using default credential provider chain in prod.
+const dynamoConfig: any = {
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
-  }
-});
+  maxAttempts: 3,
+};
+const akid = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const sak = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+if (akid && sak) {
+  dynamoConfig.credentials = { accessKeyId: akid, secretAccessKey: sak };
+}
+const client = new DynamoDBClient(dynamoConfig);
 
 const docClient = DynamoDBDocumentClient.from(client);
 const FRIENDS_TABLE = 'chatapp-friends';

@@ -5,19 +5,22 @@ import { createHmac } from 'crypto';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-function generateSecretHash(username: string, clientId: string, clientSecret: string): string {
+function generateSecretHash(username: string, clientId: string, clientSecret?: string): string | undefined {
+  if (!clientSecret) return undefined;
   const hmac = createHmac('sha256', clientSecret);
   hmac.update(username + clientId);
   return hmac.digest('base64');
 }
 
-const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
-});
+const cognitoConfig: any = {
+  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2'
+};
+const akid = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const sak = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+if (akid && sak) {
+  cognitoConfig.credentials = { accessKeyId: akid, secretAccessKey: sak };
+}
+const cognitoClient = new CognitoIdentityProviderClient(cognitoConfig);
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,15 +34,15 @@ export async function POST(request: NextRequest) {
     }
 
     const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '';
-    const clientSecret = process.env.COGNITO_CLIENT_SECRET || 'ehdqjt0ljio1nd37kthmnidrmfuj95lgl87cqm2j7idrqfhv56g';
+    const clientSecret = process.env.COGNITO_CLIENT_SECRET; // optional if app client has no secret
 
-    const secretHash = clientSecret ? generateSecretHash(email, clientId, clientSecret) : undefined;
+    const secretHash = generateSecretHash(email, clientId, clientSecret);
 
     const confirmCommand = new ConfirmSignUpCommand({
       ClientId: clientId,
       Username: email,
       ConfirmationCode: code,
-      SecretHash: secretHash
+      ...(secretHash ? { SecretHash: secretHash } : {})
     });
 
     await cognitoClient.send(confirmCommand);

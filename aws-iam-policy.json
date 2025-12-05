@@ -34,6 +34,9 @@
       "Sid": "CognitoAccess",
       "Effect": "Allow",
       "Action": [
+        "cognito-idp:SignUp",
+        "cognito-idp:ConfirmSignUp",
+        "cognito-idp:InitiateAuth",
         "cognito-idp:AdminInitiateAuth",
         "cognito-idp:AdminCreateUser",
         "cognito-idp:AdminDeleteUser",

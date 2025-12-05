@@ -3,21 +3,17 @@ import { CognitoIdentityProviderClient, ListUsersCommand } from '@aws-sdk/client
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
-const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
-});
+const region = process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2';
+const akid = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const sak = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
 
-const dbClient = new DynamoDBClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
-});
+const cognitoConfig: any = { region };
+if (akid && sak) cognitoConfig.credentials = { accessKeyId: akid, secretAccessKey: sak };
+const cognitoClient = new CognitoIdentityProviderClient(cognitoConfig);
+
+const dbConfig: any = { region, maxAttempts: 3 };
+if (akid && sak) dbConfig.credentials = { accessKeyId: akid, secretAccessKey: sak };
+const dbClient = new DynamoDBClient(dbConfig);
 
 const docClient = DynamoDBDocumentClient.from(dbClient);
 const USERS_TABLE = 'chatapp-users';

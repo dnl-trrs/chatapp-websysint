@@ -3,6 +3,9 @@ import { NextResponse } from 'next/server';
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  if (process.env.NODE_ENV === 'production') {
+    return new NextResponse('Not found', { status: 404 });
+  }
   const vars = {
     NODE_ENV: process.env.NODE_ENV,
     AWS_REGION: process.env.NEXT_PUBLIC_AWS_REGION,

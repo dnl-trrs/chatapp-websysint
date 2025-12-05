@@ -9,19 +9,22 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 // Generate SECRET_HASH for Cognito
-function generateSecretHash(username: string, clientId: string, clientSecret: string): string {
+function generateSecretHash(username: string, clientId: string, clientSecret?: string): string | undefined {
+  if (!clientSecret) return undefined;
   const hmac = createHmac('sha256', clientSecret);
   hmac.update(username + clientId);
   return hmac.digest('base64');
 }
 
-const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
-});
+const cognitoConfig: any = {
+  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2'
+};
+const akid = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const sak = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+if (akid && sak) {
+  cognitoConfig.credentials = { accessKeyId: akid, secretAccessKey: sak };
+}
+const cognitoClient = new CognitoIdentityProviderClient(cognitoConfig);
 
 export async function POST(request: NextRequest) {
   try {
@@ -35,26 +38,19 @@ export async function POST(request: NextRequest) {
     }
 
     const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '';
-    const clientSecret = process.env.COGNITO_CLIENT_SECRET || 'ehdqjt0ljio1nd37kthmnidrmfuj95lgl87cqm2j7idrqfhv56g';
+    const clientSecret = process.env.COGNITO_CLIENT_SECRET; // must be set on server in prod
 
-    if (!clientSecret) {
-      return NextResponse.json(
-        { error: 'Client secret not configured' },
-        { status: 500 }
-      );
-    }
-
-    // Generate SECRET_HASH
+    // Generate SECRET_HASH only if client secret is configured
     const secretHash = generateSecretHash(email, clientId, clientSecret);
 
-    // Initiate auth with USERNAME_PASSWORD_AUTH flow
+    // Initiate auth with USER_PASSWORD_AUTH flow
     const authCommand = new InitiateAuthCommand({
       ClientId: clientId,
       AuthFlow: 'USER_PASSWORD_AUTH',
       AuthParameters: {
         USERNAME: email,
         PASSWORD: password,
-        SECRET_HASH: secretHash
+        ...(secretHash ? { SECRET_HASH: secretHash } : {})
       }
     });
 
