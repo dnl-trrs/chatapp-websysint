@@ -2,24 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
-// Initialize DynamoDB client with fallback credentials
-const clientConfig: any = {
+// Initialize DynamoDB client
+// Relies on IAM Role in production (Amplify) and local credentials in development
+const client = new DynamoDBClient({
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
   maxAttempts: 3
-};
-
-// Priority: Amplify env vars -> Standard env vars -> Hardcoded fallback (TEMPORARY FIX)
-const accessKeyId = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-
-if (accessKeyId && secretAccessKey) {
-  clientConfig.credentials = {
-    accessKeyId,
-    secretAccessKey
-  };
-}
-
-const client = new DynamoDBClient(clientConfig);
+});
 
 const docClient = DynamoDBDocumentClient.from(client);
 const USERS_TABLE = 'chatapp-users';
@@ -29,15 +17,7 @@ export async function GET(request: NextRequest) {
   const userId = searchParams.get('userId');
   const search = searchParams.get('search');
 
-  console.log('Users API GET:', { 
-    userId, 
-    search, 
-    env: { 
-      region: process.env.NEXT_PUBLIC_AWS_REGION, 
-      hasAccessKey: !!(process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID)
-    },
-    tableName: USERS_TABLE
-  });
+  console.log('Users API GET:', { userId, search });
 
   try {
     if (userId) {
@@ -46,9 +26,7 @@ export async function GET(request: NextRequest) {
         TableName: USERS_TABLE,
         Key: { userId }
       });
-      console.log('GetCommand:', { userId, TableName: USERS_TABLE });
       const result = await docClient.send(command);
-      console.log('GetCommand result:', result.Item);
       return NextResponse.json(result.Item || null);
     } else if (search) {
       // Search users
@@ -70,16 +48,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
   } catch (error) {
+    console.error('Error in user API:', error);
     const err = error as any;
-    console.error('Error in user API:', {
-      code: err?.code,
-      message: err?.message,
-      name: err?.name,
-      full: error
-    });
     return NextResponse.json({ 
       error: 'Internal server error', 
-      code: err?.code,
       message: err?.message 
     }, { status: 500 });
   }

@@ -2,23 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
-// Initialize S3 client with fallback credentials
-const clientConfig: any = {
+// Initialize S3 client
+// Relies on IAM Role in production (Amplify) and local credentials in development
+const s3Client = new S3Client({
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
   maxAttempts: 3
-};
-
-const accessKeyId = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
-const secretAccessKey = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
-
-if (accessKeyId && secretAccessKey) {
-  clientConfig.credentials = {
-    accessKeyId,
-    secretAccessKey
-  };
-}
-
-const s3Client = new S3Client(clientConfig);
+});
 
 const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'chatapp-uploads';
 const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2';

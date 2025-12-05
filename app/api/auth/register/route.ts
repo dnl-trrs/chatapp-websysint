@@ -16,10 +16,6 @@ function generateSecretHash(username: string, clientId: string, clientSecret: st
 
 const dbClient = new DynamoDBClient({
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  },
   maxAttempts: 3
 });
 
@@ -27,11 +23,7 @@ const docClient = DynamoDBDocumentClient.from(dbClient);
 const USERS_TABLE = 'chatapp-users';
 
 const cognitoClient = new CognitoIdentityProviderClient({
-  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  }
+  region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2'
 });
 
 export async function POST(request: NextRequest) {
