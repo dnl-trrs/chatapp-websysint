@@ -26,7 +26,7 @@ export interface AuthUser {
 // Registration is handled server-side via /api/auth/register
 // No client-side registration function is exported from here.
 
-// Sign in user with email and password
+// Sign in user with email and password (client-side, no SECRET_HASH needed)
 export const signInUser = async (
   email: string,
   password: string
@@ -41,6 +41,8 @@ export const signInUser = async (
       Username: email,
       Pool: userPool
     });
+
+    // Use client-side authentication (works without CLIENT_SECRET)
 
     cognitoUser.authenticateUser(authenticationDetails, {
       onSuccess: async (session) => {

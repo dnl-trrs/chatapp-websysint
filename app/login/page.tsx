@@ -19,27 +19,9 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      // Call server-side login API which handles Cognito auth with SECRET_HASH
-      const loginRes = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      if (!loginRes.ok) {
-        const error = await loginRes.json();
-        throw new Error(error.error || 'Login failed');
-      }
-
-      const { accessToken, idToken, refreshToken } = await loginRes.json();
-
-      // Store tokens in localStorage (in production, use secure storage)
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('idToken', idToken);
-      if (refreshToken) {
-        localStorage.setItem('refreshToken', refreshToken);
-      }
-
+      // Use client-side authentication (no server-side SECRET_HASH needed)
+      const authUser = await signInUser(email, password);
+      
       // Navigate to chat
       setTimeout(() => {
         router.push("/chat");
