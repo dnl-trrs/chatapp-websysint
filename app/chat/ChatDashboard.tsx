@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { 
@@ -19,10 +20,10 @@ import {
 } from '@/lib/aws/aws-conversation-service';
 import { getFriends, getPendingRequests } from '@/lib/aws/aws-friend-service';
 import { setTypingStatus, subscribeToTypingStatus, formatTypingMessage } from '@/lib/aws/typing-service';
-import ProfileEditModal from '@/components/ProfileEditModal';
+import { signOutUser } from '@/lib/aws/auth';
+import { uploadProfilePicture } from '@/lib/profileService';
 import GroupChatManageModal from '@/components/GroupChatManageModal';
 import FriendsPanel from '@/components/FriendsPanel';
-import SettingsPanel from '@/components/SettingsPanel';
 import UserProfileCard from '@/components/UserProfileCard';
 import { useToast } from '@/components/Toast';
 
@@ -70,11 +71,11 @@ interface Message {
 }
 
 const ChatDashboard: React.FC = () => {
+  const router = useRouter();
   const { user } = useAuth();
-  const { profile } = useUserProfile(user?.uid);
+  const { profile, refreshProfile } = useUserProfile(user?.uid);
   const { showToast } = useToast();
   const [showFriendsPanel, setShowFriendsPanel] = useState(false);
-  const [showSettingsPanel, setShowSettingsPanel] = useState(false);
   const [showNewConversationModal, setShowNewConversationModal] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
@@ -88,10 +89,11 @@ const ChatDashboard: React.FC = () => {
   const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [selectedUsers, setSelectedUsers] = useState<any[]>([]);
   const [groupName, setGroupName] = useState('');
-  const [showProfileEditModal, setShowProfileEditModal] = useState(false);
   const [showGroupManageModal, setShowGroupManageModal] = useState(false);
   const [managedGroup, setManagedGroup] = useState<{ id: string; name: string; createdBy: string; participants: number; participantIds?: string[] } | null>(null);
   const [showUserProfile, setShowUserProfile] = useState<string | null>(null);
+  const [isUploadingProfile, setIsUploadingProfile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const messagesContainerRef = useRef<HTMLDivElement | null>(null);
@@ -101,6 +103,7 @@ const ChatDashboard: React.FC = () => {
   const [showScrollButton, setShowScrollButton] = useState(false);
   const scrollPositions = useRef<Map<string, number>>(new Map());
   const justSentMessage = useRef(false);
+  const isUserScrolledUp = useRef(false);
 
 
   const getStatusColor = (status?: string) => {
@@ -113,6 +116,59 @@ const ChatDashboard: React.FC = () => {
   };
 
   const displayName = profile?.displayName || user?.displayName || 'User';
+
+  const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user?.uid || !e.target.files?.length) return;
+
+    const file = e.target.files[0];
+    setIsUploadingProfile(true);
+    
+    try {
+      // Upload profile picture using the existing service
+      const photoURL = await uploadProfilePicture(user.uid, file);
+      
+      // Update the user profile in DynamoDB
+      const { userService } = await import('@/lib/aws/dynamodb-client');
+      await userService.updateUser(user.uid, { photoURL });
+      
+      // Refresh the profile immediately to show updated photo
+      await refreshProfile();
+      
+      // Update local user profiles cache immediately for messages
+      setUserProfiles(prev => ({
+        ...prev,
+        [user.uid]: {
+          ...prev[user.uid],
+          photoURL
+        }
+      }));
+      
+      showToast('Profile picture updated successfully', 'success');
+    } catch (error) {
+      console.error('Error uploading profile picture:', error);
+      showToast(
+        error instanceof Error ? error.message : 'Failed to upload profile picture',
+        'error'
+      );
+    } finally {
+      setIsUploadingProfile(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleSignOut = async () => {
+    try {
+      await signOutUser();
+      // Redirect to login page after sign out
+      router.push('/login');
+    } catch (error) {
+      console.error('Error signing out:', error);
+      showToast('Failed to sign out', 'error');
+    }
+  };
 
   // Subscribe to user's conversations with real-time updates
   useEffect(() => {
@@ -231,7 +287,9 @@ const ChatDashboard: React.FC = () => {
       isInitialLoad.current = true;
       
       const unsubscribe = subscribeToConversationMessages(selectedConversation, (convMessages) => {
-        const formattedMessages: Message[] = convMessages.map(msg => ({
+        // Ensure newest message is last
+        const sorted = [...convMessages].sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+        const formattedMessages: Message[] = sorted.map(msg => ({
           id: msg.id,
           text: msg.text,
           createdAt: msg.timestamp as any,
@@ -242,27 +300,29 @@ const ChatDashboard: React.FC = () => {
         
         setMessages(formattedMessages);
         
-        // Only scroll on initial load or when user just sent a message
+        // Auto-scroll logic:
+        // - On initial load, scroll to saved position or bottom
+        // - If user sent a message, scroll to bottom
+        // - If user is near bottom (not scrolled up), keep them pinned to bottom on new messages
+        const scrollToBottom = () => {
+          messagesEndRef.current?.scrollIntoView({ behavior: isInitialLoad.current ? 'instant' : 'auto' });
+        };
+
         if (isInitialLoad.current) {
-          setTimeout(() => {
-            const savedPosition = scrollPositions.current.get(selectedConversation);
-            if (savedPosition !== undefined && messagesContainerRef.current) {
-              // Restore previous scroll position
-              messagesContainerRef.current.scrollTop = savedPosition;
-            } else {
-              // First time in conversation, scroll to bottom
-              messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
-            }
-            isInitialLoad.current = false;
-          }, 100);
+          const savedPosition = scrollPositions.current.get(selectedConversation);
+          if (savedPosition !== undefined && messagesContainerRef.current) {
+            messagesContainerRef.current.scrollTop = savedPosition;
+          } else {
+            scrollToBottom();
+          }
+          isInitialLoad.current = false;
         } else if (justSentMessage.current) {
-          // Scroll to bottom only for user's own sent messages
-          setTimeout(() => {
-            messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-            justSentMessage.current = false;
-          }, 100);
+          scrollToBottom();
+          justSentMessage.current = false;
+        } else if (!isUserScrolledUp.current) {
+          // New message arrived and user is at/near bottom -> keep pinned
+          scrollToBottom();
         }
-        // Otherwise, no auto-scroll - user has full control
       });
       
       return unsubscribe;
@@ -280,40 +340,49 @@ const ChatDashboard: React.FC = () => {
       const { userService } = await import('@/lib/aws/dynamodb-client');
       
       for (const uid of uids) {
-        if (!userProfileUnsubsRef.current.has(uid)) {
-          try {
-            const userData = await userService.getUser(uid);
-            if (userData) {
-              setUserProfiles(prev => ({
-                ...prev,
-                [uid]: {
-                  displayName: userData.displayName,
-                  username: userData.username,
-                  photoURL: userData.photoURL,
-                }
-              }));
-            }
-          } catch (error) {
-            console.error(`Error fetching user profile for ${uid}:`, error);
+        try {
+          const userData = await userService.getUser(uid);
+          if (userData) {
+            setUserProfiles(prev => ({
+              ...prev,
+              [uid]: {
+                displayName: userData.displayName,
+                username: userData.username,
+                photoURL: userData.photoURL,
+              }
+            }));
           }
-          // Mark as fetched to avoid repeated calls
-          userProfileUnsubsRef.current.set(uid, () => {});
+        } catch (error) {
+          console.error(`Error fetching user profile for ${uid}:`, error);
         }
       }
     };
 
+    // Fetch immediately
     fetchUserProfiles();
 
+    // Poll for updates every 3 seconds to catch profile picture changes
+    const pollInterval = setInterval(fetchUserProfiles, 3000);
+
     // Clean up profiles no longer needed
-    Array.from(userProfileUnsubsRef.current.keys()).forEach(uid => {
-      if (!uids.has(uid)) {
-        userProfileUnsubsRef.current.delete(uid);
-        setUserProfiles(prev => {
-          const { [uid]: _removed, ...rest } = prev;
-          return rest;
-        });
-      }
-    });
+    const cleanupProfiles = () => {
+      const currentUids = new Set(userProfileUnsubsRef.current.keys());
+      currentUids.forEach(uid => {
+        if (!uids.has(uid)) {
+          userProfileUnsubsRef.current.delete(uid);
+          setUserProfiles(prev => {
+            const { [uid]: _removed, ...rest } = prev;
+            return rest;
+          });
+        }
+      });
+    };
+    cleanupProfiles();
+    
+    // Store current uids for cleanup
+    uids.forEach(uid => userProfileUnsubsRef.current.set(uid, () => {}));
+
+    return () => clearInterval(pollInterval);
   }, [messages, user]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -330,12 +399,24 @@ const ChatDashboard: React.FC = () => {
 
     try {
       if (selectedConversation) {
+        // Add optimistic message immediately for instant display
+        const tempMessage: Message = {
+          id: `temp-${Date.now()}`,
+          text: messageText,
+          createdAt: { seconds: Math.floor(Date.now() / 1000), nanoseconds: 0 },
+          uid: user.uid,
+          displayName: '',
+          photoURL: ''
+        };
+        
+        // Show message instantly and pin to bottom
+        setMessages(prev => [...prev, tempMessage]);
+        justSentMessage.current = true;
+        
         // Send to conversation (DM or group chat)
         await sendConversationMessage(selectedConversation, user.uid, messageText);
+        // The real-time listener will replace this with the actual message from the database
       }
-
-      // Mark that user just sent a message (will trigger scroll in message listener)
-      justSentMessage.current = true;
     } catch (error) {
       console.error("Error sending message:", error);
       setNewMessage(messageText);
@@ -788,6 +869,8 @@ const ChatDashboard: React.FC = () => {
                       
                       // Show button when scrolled up more than 200px from bottom
                       setShowScrollButton(distanceFromBottom > 200);
+                      // Track if user has scrolled up
+                      isUserScrolledUp.current = distanceFromBottom > 20;
                     }}
                   >
                     {messages.length === 0 ? (
@@ -898,10 +981,11 @@ const ChatDashboard: React.FC = () => {
                     <div className="absolute bottom-6 right-6 z-10">
                       <button
                         onClick={() => {
+                          isUserScrolledUp.current = false;
                           messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
                         }}
                         className="w-10 h-10 bg-[#818cf8] hover:bg-[#6366f1] rounded-full flex items-center justify-center shadow-lg transition-all hover:scale-110"
-                        title="Scroll to bottom"
+                        title="Jump to latest message"
                       >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
                           <path d="M7 10l5 5 5-5H7z"/>
@@ -1004,32 +1088,68 @@ const ChatDashboard: React.FC = () => {
             className="flex items-center gap-3 mb-3 cursor-pointer hover:bg-[#27272a] rounded-lg p-2 -m-2 transition-colors"
             onClick={() => user?.uid && setShowUserProfile(user.uid)}
           >
-            {profile?.photoURL ? (
-              <Image
-                src={profile.photoURL}
-                alt={displayName}
-                width={40}
-                height={40}
-                className="rounded-full"
+            <div className="relative group">
+              {profile?.photoURL ? (
+                <Image
+                  src={profile.photoURL}
+                  alt={displayName}
+                  width={40}
+                  height={40}
+                  className="rounded-full"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-sm font-bold">
+                  {displayName[0]?.toUpperCase()}
+                </div>
+              )}
+              {/* Upload overlay */}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  fileInputRef.current?.click();
+                }}
+                disabled={isUploadingProfile}
+                className="absolute inset-0 rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center disabled:opacity-50"
+                title="Upload profile picture"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="white">
+                  <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>
+                  <polyline points="14 2 14 8 20 8"/>
+                  <circle cx="12" cy="15" r="3" fill="none" stroke="white" strokeWidth="2"/>
+                </svg>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={handleProfilePictureUpload}
+                disabled={isUploadingProfile}
+                className="hidden"
               />
-            ) : (
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-sm font-bold">
-                {displayName[0]?.toUpperCase()}
-              </div>
-            )}
+            </div>
             <div className="flex-1">
               <p className="text-sm text-[#e4e4e7] font-semibold">{displayName}</p>
               <p className="text-xs text-[#71717a]">@{profile?.username || 'username'}</p>
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="space-y-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingProfile}
+              className="w-full btn btn-secondary py-1.5 text-xs flex items-center justify-center gap-2"
+              title="Upload a new profile picture"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+              </svg>
+              {isUploadingProfile ? 'Uploading...' : 'Change Photo'}
+            </button>
             <button 
               onClick={() => {
                 setShowFriendsPanel(!showFriendsPanel);
-                setShowSettingsPanel(false);
               }}
-              className={`flex-1 btn ${showFriendsPanel ? 'btn-primary' : 'btn-secondary'} py-1.5 text-xs relative`}
+              className={`w-full btn ${showFriendsPanel ? 'btn-primary' : 'btn-secondary'} py-1.5 text-xs relative`}
             >
               Friends
               {pendingRequestsCount > 0 && (
@@ -1038,14 +1158,14 @@ const ChatDashboard: React.FC = () => {
                 </span>
               )}
             </button>
-            <button 
-              onClick={() => {
-                setShowSettingsPanel(!showSettingsPanel);
-                setShowFriendsPanel(false);
-              }}
-              className={`flex-1 btn ${showSettingsPanel ? 'btn-primary' : 'btn-secondary'} py-1.5 text-xs`}
+            <button
+              onClick={handleSignOut}
+              className="w-full btn btn-secondary py-1.5 text-xs flex items-center justify-center gap-2"
             >
-              Settings
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/>
+              </svg>
+              Sign Out
             </button>
           </div>
         </div>
@@ -1237,22 +1357,6 @@ const ChatDashboard: React.FC = () => {
         }}
       />
 
-      {/* Settings Panel */}
-      <SettingsPanel
-        isOpen={showSettingsPanel}
-        onClose={() => setShowSettingsPanel(false)}
-        onEditProfile={() => {
-          setShowSettingsPanel(false);
-          setShowProfileEditModal(true);
-        }}
-        onViewProfile={() => {
-          if (user?.uid) {
-            setShowUserProfile(user.uid);
-            setShowSettingsPanel(false);
-          }
-        }}
-      />
-
       {/* Server Creation Modal - REMOVED
       {showNewServerModal && (
         <CreateServerModalEnhanced
@@ -1267,12 +1371,6 @@ const ChatDashboard: React.FC = () => {
           }}
         />
       )} */}
-
-      {/* Profile Edit Modal */}
-      <ProfileEditModal
-        isOpen={showProfileEditModal}
-        onClose={() => setShowProfileEditModal(false)}
-      />
 
       {/* Group Chat Manage Modal */}
       {showGroupManageModal && managedGroup && (

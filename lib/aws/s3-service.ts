@@ -17,10 +17,14 @@ export const s3Service = {
   async uploadFile(file: File, path: string): Promise<string> {
     const key = `${path}/${Date.now()}_${file.name}`;
     
+    // Convert File to Uint8Array for S3 upload
+    const arrayBuffer = await file.arrayBuffer();
+    const uint8Array = new Uint8Array(arrayBuffer);
+    
     const command = new PutObjectCommand({
       Bucket: BUCKET_NAME,
       Key: key,
-      Body: file,
+      Body: uint8Array,
       ContentType: file.type,
       // Make file publicly readable
       ACL: 'public-read'

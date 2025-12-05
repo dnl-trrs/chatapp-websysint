@@ -20,6 +20,30 @@ export const useUserProfile = (uid?: string | null) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState<boolean>(!!uid);
   
+  const refreshProfile = async () => {
+    if (!uid) return;
+    try {
+      const userData = await userService.getUser(uid);
+      if (userData) {
+        const mappedProfile: UserProfile = {
+          uid: userData.userId || uid,
+          userId: userData.userId || uid,
+          email: userData.email,
+          displayName: userData.displayName,
+          username: userData.username,
+          photoURL: userData.photoURL,
+          bio: userData.bio || '',
+          status: userData.status || 'offline',
+          createdAt: userData.createdAt,
+          updatedAt: userData.updatedAt
+        };
+        setProfile(mappedProfile);
+      }
+    } catch (error) {
+      console.error('Error refreshing profile:', error);
+    }
+  };
+  
   const updateProfile = async (updates: Partial<UserProfile>) => {
     if (!uid) return;
     
@@ -123,6 +147,6 @@ export const useUserProfile = (uid?: string | null) => {
     return () => clearInterval(interval);
   }, [uid]);
 
-  return { profile, loading, updateProfile } as const;
+  return { profile, loading, updateProfile, refreshProfile } as const;
 };
 

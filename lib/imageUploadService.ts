@@ -1,6 +1,5 @@
-import { storage, db } from './firebase';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+// Use AWS S3 for image uploads
+import { s3Service } from './aws/s3-service';
 
 /**
  * Validate image file
@@ -17,7 +16,7 @@ const validateImageFile = (file: File, maxSizeMB: number = 5): void => {
 };
 
 /**
- * Upload group chat picture
+ * Upload group chat picture to AWS S3
  */
 export const uploadGroupChatPicture = async (
   groupId: string,
@@ -29,46 +28,17 @@ export const uploadGroupChatPicture = async (
   validateImageFile(file);
 
   try {
-    const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `groupChats/${groupId}/avatar_${timestamp}.${fileExtension}`;
-    
-    const storageRef = ref(storage, fileName);
-    const metadata = {
-      contentType: file.type,
-      customMetadata: {
-        uploadedBy: uploaderId,
-        uploadedAt: new Date().toISOString()
-      }
-    };
-
-    const snapshot = await uploadBytes(storageRef, file, metadata);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    // Update group chat document with new picture
-    await updateDoc(doc(db, 'conversations', groupId), {
-      photoURL: downloadURL,
-      updatedAt: serverTimestamp(),
-      lastUpdatedBy: uploaderId
-    });
-    
-    console.log('Group chat picture uploaded successfully:', downloadURL);
-    return downloadURL;
+    const url = await s3Service.uploadFile(file, `group-chats/${groupId}`);
+    console.log('Group chat picture uploaded successfully:', url);
+    return url;
   } catch (error: any) {
     console.error('Error uploading group chat picture:', error);
-    
-    if (error.code === 'storage/unauthorized') {
-      throw new Error('You must be logged in to upload a group picture');
-    } else if (error.code === 'storage/unauthenticated') {
-      throw new Error('Your session has expired. Please log in again');
-    }
-    
     throw new Error(`Failed to upload group picture: ${error.message || error}`);
   }
 };
 
 /**
- * Upload server icon/picture
+ * Upload server icon/picture (not currently used in core features)
  */
 export const uploadServerPicture = async (
   serverId: string,
@@ -80,45 +50,17 @@ export const uploadServerPicture = async (
   validateImageFile(file);
 
   try {
-    const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `servers/${serverId}/icon_${timestamp}.${fileExtension}`;
-    
-    const storageRef = ref(storage, fileName);
-    const metadata = {
-      contentType: file.type,
-      customMetadata: {
-        uploadedBy: uploaderId,
-        uploadedAt: new Date().toISOString()
-      }
-    };
-
-    const snapshot = await uploadBytes(storageRef, file, metadata);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    // Update server document with new icon
-    await updateDoc(doc(db, 'servers', serverId), {
-      icon: downloadURL,
-      updatedAt: serverTimestamp()
-    });
-    
-    console.log('Server icon uploaded successfully:', downloadURL);
-    return downloadURL;
+    const url = await s3Service.uploadFile(file, `servers/${serverId}`);
+    console.log('Server icon uploaded successfully:', url);
+    return url;
   } catch (error: any) {
     console.error('Error uploading server icon:', error);
-    
-    if (error.code === 'storage/unauthorized') {
-      throw new Error('You must be logged in to upload a server icon');
-    } else if (error.code === 'storage/unauthenticated') {
-      throw new Error('Your session has expired. Please log in again');
-    }
-    
     throw new Error(`Failed to upload server icon: ${error.message || error}`);
   }
 };
 
 /**
- * Upload channel icon/picture (for future use)
+ * Upload channel icon/picture (not currently used in core features)
  */
 export const uploadChannelPicture = async (
   channelId: string,
@@ -130,39 +72,11 @@ export const uploadChannelPicture = async (
   validateImageFile(file);
 
   try {
-    const timestamp = Date.now();
-    const fileExtension = file.name.split('.').pop() || 'jpg';
-    const fileName = `channels/${channelId}/icon_${timestamp}.${fileExtension}`;
-    
-    const storageRef = ref(storage, fileName);
-    const metadata = {
-      contentType: file.type,
-      customMetadata: {
-        uploadedBy: uploaderId,
-        uploadedAt: new Date().toISOString()
-      }
-    };
-
-    const snapshot = await uploadBytes(storageRef, file, metadata);
-    const downloadURL = await getDownloadURL(snapshot.ref);
-    
-    // Update channel document with new icon
-    await updateDoc(doc(db, 'channels', channelId), {
-      icon: downloadURL,
-      updatedAt: serverTimestamp()
-    });
-    
-    console.log('Channel icon uploaded successfully:', downloadURL);
-    return downloadURL;
+    const url = await s3Service.uploadFile(file, `channels/${channelId}`);
+    console.log('Channel icon uploaded successfully:', url);
+    return url;
   } catch (error: any) {
     console.error('Error uploading channel icon:', error);
-    
-    if (error.code === 'storage/unauthorized') {
-      throw new Error('You must be logged in to upload a channel icon');
-    } else if (error.code === 'storage/unauthenticated') {
-      throw new Error('Your session has expired. Please log in again');
-    }
-    
     throw new Error(`Failed to upload channel icon: ${error.message || error}`);
   }
 };

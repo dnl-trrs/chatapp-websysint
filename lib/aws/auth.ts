@@ -23,65 +23,10 @@ export interface AuthUser {
   emailVerified: boolean;
 }
 
-// Register user - simplified with immediate sign-in
-export const registerUser = async (
-  email: string,
-  password: string,
-  displayName: string,
-  username: string
-): Promise<AuthUser> => {
-  return new Promise((resolve, reject) => {
-    const attributeList = [
-      new CognitoUserAttribute({ Name: 'email', Value: email }),
-      new CognitoUserAttribute({ Name: 'name', Value: displayName }),
-      new CognitoUserAttribute({ Name: 'preferred_username', Value: username })
-    ];
+// Registration is handled server-side via /api/auth/register
+// No client-side registration function is exported from here.
 
-    // Generate unique username (not email) since pool uses email alias
-    const uniqueUsername = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    userPool.signUp(uniqueUsername, password, attributeList, [], async (err, result) => {
-      if (err) {
-        console.error('Registration error:', err);
-        reject(err);
-        return;
-      }
-
-      if (result) {
-        const userId = result.userSub;
-        
-        // Create user in DynamoDB immediately
-        try {
-          await userService.createUser(userId, {
-            email,
-            displayName,
-            username: username.toLowerCase(),
-            photoURL: '',
-            bio: '',
-            status: 'online',
-            emailVerified: false,
-            createdAt: Date.now()
-          });
-        } catch (dbError) {
-          console.error('Error creating user in DynamoDB:', dbError);
-        }
-
-        // Return user object
-        const authUser: AuthUser = {
-          uid: userId,
-          email,
-          displayName,
-          photoURL: null,
-          emailVerified: false
-        };
-
-        resolve(authUser);
-      }
-    });
-  });
-};
-
-// Sign in user
+// Sign in user with email and password
 export const signInUser = async (
   email: string,
   password: string
@@ -110,10 +55,11 @@ export const signInUser = async (
           userData = await userService.getUser(userId);
           if (!userData) {
             // Create user if doesn't exist
+            const userEmail = payload['email'];
             userData = await userService.createUser(userId, {
-              email: payload['email'],
-              displayName: payload['name'] || email.split('@')[0],
-              username: payload['preferred_username'] || email.split('@')[0],
+              email: userEmail,
+              displayName: payload['name'] || userEmail.split('@')[0],
+              username: userEmail.split('@')[0],
               photoURL: payload['picture'] || '',
               emailVerified: payload['email_verified'] || false,
               status: 'online'
@@ -127,8 +73,9 @@ export const signInUser = async (
           }
         } catch (dbError) {
           console.error('DynamoDB error:', dbError);
+          const userEmail = payload['email'];
           userData = {
-            displayName: payload['name'] || email.split('@')[0],
+            displayName: payload['name'] || userEmail.split('@')[0],
             photoURL: payload['picture'] || ''
           };
         }
@@ -161,15 +108,80 @@ export const signInUser = async (
 
 // Sign out user
 export const signOutUser = async (): Promise<void> => {
-  const currentUser = userPool.getCurrentUser();
-  if (currentUser) {
-    currentUser.signOut();
-  }
+  return new Promise((resolve) => {
+    try {
+      // Clear tokens from localStorage (from server-side auth)
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('idToken');
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+      }
+
+      const currentUser = userPool.getCurrentUser();
+      if (currentUser) {
+        // Sign out globally to clear all sessions
+        currentUser.globalSignOut({
+          onSuccess: () => {
+            console.log('Global sign out successful');
+            resolve();
+          },
+          onFailure: (err: any) => {
+            console.error('Error during global sign out:', err);
+            // Fallback to local sign out
+            currentUser.signOut();
+            resolve();
+          }
+        });
+      } else {
+        resolve();
+      }
+    } catch (error) {
+      console.error('Error signing out:', error);
+      resolve();
+    }
+  });
 };
 
 // Get current user
 export const getCurrentUser = async (): Promise<AuthUser | null> => {
-  return new Promise((resolve) => {
+  return new Promise(async (resolve) => {
+    // First, check if we have tokens in localStorage (from server-side auth)
+    if (typeof window !== 'undefined') {
+      const idToken = localStorage.getItem('idToken');
+      if (idToken) {
+        try {
+          // Parse the JWT manually
+          const parts = idToken.split('.');
+          if (parts.length === 3) {
+            const payload = JSON.parse(atob(parts[1]));
+            const userId = payload['sub'];
+            
+            // Get user data from DynamoDB
+            let userData;
+            try {
+              userData = await userService.getUser(userId);
+            } catch (error) {
+              console.error('Error fetching user from DynamoDB:', error);
+              userData = null;
+            }
+
+            resolve({
+              uid: userId,
+              email: payload['email'],
+              displayName: userData?.displayName || payload['name'] || null,
+              photoURL: userData?.photoURL || null,
+              emailVerified: payload['email_verified'] || false
+            });
+            return;
+          }
+        } catch (err) {
+          console.error('Error parsing idToken:', err);
+          localStorage.removeItem('idToken');
+        }
+      }
+    }
+
+    // Fall back to Cognito session (for backward compatibility)
     const currentUser = userPool.getCurrentUser();
     if (!currentUser) {
       resolve(null);
@@ -243,11 +255,10 @@ export const onAuthStateChanged = (callback: (user: AuthUser | null) => void): (
   // Check initial state
   getCurrentUser().then(callback);
 
-  // Poll for changes every 5 seconds
-  const interval = setInterval(async () => {
-    const user = await getCurrentUser();
-    callback(user);
-  }, 5000);
+  // Poll for auth state changes so UI reacts to logout immediately
+  const interval = setInterval(() => {
+    getCurrentUser().then(callback);
+  }, 1000);
 
   return () => clearInterval(interval);
 };

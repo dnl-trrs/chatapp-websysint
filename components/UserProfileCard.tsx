@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { userService } from '@/lib/aws/dynamodb-client';
-import { getFriendStatus, sendFriendRequest, removeFriend, acceptFriendRequest } from '@/lib/friendService';
+import { getFriendStatus, sendFriendRequest, removeFriend, acceptFriendRequest, getPendingRequests } from '@/lib/friendService';
 import { createOrGetDMConversation } from '@/lib/conversationService';
 import { useAuth } from '@/hooks/useAuth';
 
@@ -41,6 +41,13 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     if (isOpen && userId) {
       loadUserProfile();
       checkFriendStatus();
+      
+      // Poll for profile updates every 2 seconds while card is open
+      const pollInterval = setInterval(() => {
+        loadUserProfile();
+      }, 2000);
+      
+      return () => clearInterval(pollInterval);
     }
   }, [isOpen, userId]);
 
@@ -112,7 +119,13 @@ const UserProfileCard: React.FC<UserProfileCardProps> = ({
     setLoading(true);
     setError('');
     try {
-      await acceptFriendRequest(userId, user.uid);
+      // Get pending requests to find the request ID
+      const requests = await getPendingRequests(user.uid);
+      const request = requests.find(r => r.fromUserId === userId);
+      if (!request || !request.id) {
+        throw new Error('Friend request not found');
+      }
+      await acceptFriendRequest(request.id);
       setFriendStatus('friends');
     } catch (err: any) {
       setError(err.message || 'Failed to accept friend request');
