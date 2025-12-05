@@ -2,15 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
-// Initialize DynamoDB client with server-side credentials (try Amplify first, then fallback)
-const client = new DynamoDBClient({
+// Initialize DynamoDB client with fallback credentials
+const clientConfig: any = {
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
-  credentials: {
-    accessKeyId: process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID || '',
-    secretAccessKey: process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY || ''
-  },
-  maxAttempts: 2
-});
+  maxAttempts: 3
+};
+
+// Priority: Amplify env vars -> Standard env vars -> Hardcoded fallback (TEMPORARY FIX)
+const accessKeyId = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const secretAccessKey = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
+if (accessKeyId && secretAccessKey) {
+  clientConfig.credentials = {
+    accessKeyId,
+    secretAccessKey
+  };
+}
+
+const client = new DynamoDBClient(clientConfig);
 
 const docClient = DynamoDBDocumentClient.from(client);
 const USERS_TABLE = 'chatapp-users';
@@ -20,7 +29,15 @@ export async function GET(request: NextRequest) {
   const userId = searchParams.get('userId');
   const search = searchParams.get('search');
 
-  console.log('Users API GET:', { userId, search, env: { region: process.env.NEXT_PUBLIC_AWS_REGION, hasAccessKey: !!process.env.AMPLIFY_ACCESS_KEY_ID || !!process.env.AWS_ACCESS_KEY_ID } });
+  console.log('Users API GET:', { 
+    userId, 
+    search, 
+    env: { 
+      region: process.env.NEXT_PUBLIC_AWS_REGION, 
+      hasAccessKey: !!(process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID)
+    },
+    tableName: USERS_TABLE
+  });
 
   try {
     if (userId) {
