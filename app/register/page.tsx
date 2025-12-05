@@ -34,8 +34,26 @@ export default function RegisterPage() {
 
       const data = await res.json();
       
-      // Use client-side authentication (no server-side SECRET_HASH needed)
-      await signInUser(email, password);
+      // Use server-side login API (handles SECRET_HASH)
+      const loginRes = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!loginRes.ok) {
+        const loginError = await loginRes.json();
+        throw new Error(loginError.error || 'Login failed after registration');
+      }
+
+      const { accessToken, idToken, refreshToken } = await loginRes.json();
+
+      // Store tokens in localStorage
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('idToken', idToken);
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
 
       // Navigate to chat
       setTimeout(() => {

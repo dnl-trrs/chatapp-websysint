@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { signInUser } from "@/lib/aws/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -19,9 +18,27 @@ export default function LoginPage() {
     setLoading(true);
     
     try {
-      // Use client-side authentication (no server-side SECRET_HASH needed)
-      const authUser = await signInUser(email, password);
-      
+      // Call server-side login API (handles SECRET_HASH)
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Login failed');
+      }
+
+      const { accessToken, idToken, refreshToken } = await res.json();
+
+      // Store tokens in localStorage
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('idToken', idToken);
+      if (refreshToken) {
+        localStorage.setItem('refreshToken', refreshToken);
+      }
+
       // Navigate to chat
       setTimeout(() => {
         router.push("/chat");
