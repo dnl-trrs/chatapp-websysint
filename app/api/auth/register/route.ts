@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '';
     const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || '';
-    const clientSecret = process.env.COGNITO_CLIENT_SECRET || '';
+    const clientSecret = process.env.COGNITO_CLIENT_SECRET || 'ehdqjt0ljio1nd37kthmnidrmfuj95lgl87cqm2j7idrqfhv56g';
 
     // Generate SECRET_HASH if client secret is configured
     const secretHash = clientSecret ? generateSecretHash(email, clientId, clientSecret) : undefined;
