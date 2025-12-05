@@ -4,6 +4,9 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { createHmac } from 'crypto';
 
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
 // Generate SECRET_HASH for Cognito
 function generateSecretHash(username: string, clientId: string, clientSecret: string): string {
   const hmac = createHmac('sha256', clientSecret);
