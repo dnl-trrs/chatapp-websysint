@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { CognitoIdentityProviderClient, SignUpCommand, AdminSetUserPasswordCommand } from '@aws-sdk/client-cognito-identity-provider';
+import { CognitoIdentityProviderClient, SignUpCommand } from '@aws-sdk/client-cognito-identity-provider';
 import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, PutCommand } from '@aws-sdk/lib-dynamodb';
 import { createHmac } from 'crypto';
@@ -71,18 +71,6 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create user' },
         { status: 500 }
       );
-    }
-
-    // Set permanent password and confirm user
-    try {
-      await cognitoClient.send(new AdminSetUserPasswordCommand({
-        UserPoolId: userPoolId,
-        Username: email,
-        Password: password,
-        Permanent: true
-      }));
-    } catch (err) {
-      console.error('Error setting permanent password:', err);
     }
 
     // Create user in DynamoDB
