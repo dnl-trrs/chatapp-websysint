@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
       UserAttributes: [
         { Name: 'email', Value: email },
         { Name: 'name', Value: username }
-      ]
+      ],
+      MessageAction: 'SUPPRESS' // Auto-confirm without email
     });
 
     const signUpResponse = await cognitoClient.send(signUpCommand);
@@ -71,18 +72,6 @@ export async function POST(request: NextRequest) {
         { error: 'Failed to create user' },
         { status: 500 }
       );
-    }
-
-    // Admin confirm the user (dev convenience - auto-confirms without email verification)
-    try {
-      const confirmCommand = new AdminConfirmSignUpCommand({
-        UserPoolId: userPoolId,
-        Username: email
-      });
-      await cognitoClient.send(confirmCommand);
-    } catch (confirmErr) {
-      console.error('ERROR confirming user - IAM permissions issue?:', confirmErr);
-      // Continue - user may still be usable
     }
 
     // Create user in DynamoDB
