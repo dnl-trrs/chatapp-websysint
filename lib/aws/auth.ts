@@ -1,19 +1,5 @@
-import { 
-  CognitoUserPool, 
-  CognitoUser, 
-  AuthenticationDetails,
-  CognitoUserAttribute,
-  CognitoUserSession
-} from 'amazon-cognito-identity-js';
+import { DirectCognitoAuth } from './cognito-direct-auth';
 import { userService } from './dynamodb-client';
-
-// Cognito configuration
-const poolData = {
-  UserPoolId: process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || '',
-  ClientId: process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || ''
-};
-
-const userPool = new CognitoUserPool(poolData);
 
 export interface AuthUser {
   uid: string;
@@ -31,115 +17,66 @@ export const signInUser = async (
   email: string,
   password: string
 ): Promise<AuthUser> => {
-  return new Promise((resolve, reject) => {
-    const authenticationDetails = new AuthenticationDetails({
-      Username: email,
-      Password: password
-    });
+  // Use direct Cognito API to avoid SECRET_HASH behavior in the identity-js SDK
+  const { idToken, accessToken } = await DirectCognitoAuth.signIn(email, password);
+  const payload = JSON.parse(Buffer.from(idToken.split('.')[1], 'base64').toString());
 
-    const cognitoUser = new CognitoUser({
-      Username: email,
-      Pool: userPool
-    });
+  // Get or create user in DynamoDB
+  const userId = payload['sub'];
+  let userData: any;
 
-    cognitoUser.authenticateUser(authenticationDetails, {
-      onSuccess: async (session) => {
-        const idToken = session.getIdToken();
-        const payload = idToken.decodePayload();
-        
-        // Get or create user in DynamoDB
-        const userId = payload['sub'];
-        let userData;
-        
-        try {
-          userData = await userService.getUser(userId);
-          if (!userData) {
-            // Create user if doesn't exist
-            const userEmail = payload['email'];
-            userData = await userService.createUser(userId, {
-              email: userEmail,
-              displayName: payload['name'] || userEmail.split('@')[0],
-              username: userEmail.split('@')[0],
-              photoURL: payload['picture'] || '',
-              emailVerified: payload['email_verified'] || false,
-              status: 'online'
-            });
-          } else {
-            // Update last login
-            await userService.updateUser(userId, {
-              lastLogin: Date.now(),
-              status: 'online'
-            });
-          }
-        } catch (dbError) {
-          console.error('DynamoDB error:', dbError);
-          const userEmail = payload['email'];
-          userData = {
-            displayName: payload['name'] || userEmail.split('@')[0],
-            photoURL: payload['picture'] || ''
-          };
-        }
+  try {
+    userData = await userService.getUser(userId);
+    if (!userData) {
+      const userEmail = payload['email'];
+      userData = await userService.createUser(userId, {
+        email: userEmail,
+        displayName: payload['name'] || userEmail.split('@')[0],
+        username: userEmail.split('@')[0],
+        photoURL: payload['picture'] || '',
+        emailVerified: payload['email_verified'] || false,
+        status: 'online'
+      });
+    } else {
+      await userService.updateUser(userId, {
+        lastLogin: Date.now(),
+        status: 'online'
+      });
+    }
+  } catch (dbError) {
+    console.error('DynamoDB error:', dbError);
+    const userEmail = payload['email'];
+    userData = {
+      displayName: payload['name'] || userEmail.split('@')[0],
+      photoURL: payload['picture'] || ''
+    };
+  }
 
-        const authUser: AuthUser = {
-          uid: userId,
-          email: payload['email'],
-          displayName: userData.displayName || payload['name'],
-          photoURL: userData.photoURL || null,
-          emailVerified: payload['email_verified'] || false
-        };
+  const authUser: AuthUser = {
+    uid: userId,
+    email: payload['email'],
+    displayName: userData.displayName || payload['name'],
+    photoURL: userData.photoURL || null,
+    emailVerified: payload['email_verified'] || false
+  };
 
-        resolve(authUser);
-      },
-      onFailure: (err) => {
-        console.error('Sign in error:', err);
-        
-        // If user is not confirmed, try to auto-confirm for development
-        if (err.code === 'UserNotConfirmedException') {
-          // In production, you would send a confirmation code
-          // For development, user needs to be confirmed manually in AWS Console
-          reject(new Error('Please confirm your email address. Check your inbox for the confirmation code.'));
-        } else {
-          reject(err);
-        }
-      }
-    });
-  });
+  // Persist tokens for getCurrentUser fallback
+  if (typeof window !== 'undefined') {
+    localStorage.setItem('idToken', idToken);
+    localStorage.setItem('accessToken', accessToken);
+  }
+
+  return authUser;
 };
 
 // Sign out user
 export const signOutUser = async (): Promise<void> => {
-  return new Promise((resolve) => {
-    try {
-      // Clear tokens from localStorage (from server-side auth)
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('idToken');
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-      }
-
-      const currentUser = userPool.getCurrentUser();
-      if (currentUser) {
-        // Sign out globally to clear all sessions
-        currentUser.globalSignOut({
-          onSuccess: () => {
-            console.log('Global sign out successful');
-            resolve();
-          },
-          onFailure: (err: any) => {
-            console.error('Error during global sign out:', err);
-            // Fallback to local sign out
-            currentUser.signOut();
-            resolve();
-          }
-        });
-      } else {
-        resolve();
-      }
-    } catch (error) {
-      console.error('Error signing out:', error);
-      resolve();
-    }
-  });
+  // Clear tokens from localStorage
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('idToken');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('refreshToken');
+  }
 };
 
 // Get current user
@@ -182,21 +119,8 @@ export const getCurrentUser = async (): Promise<AuthUser | null> => {
     }
 
     // Fall back to Cognito session (for backward compatibility)
-    const currentUser = userPool.getCurrentUser();
-    if (!currentUser) {
-      resolve(null);
-      return;
-    }
-
-    currentUser.getSession(async (err: Error | null, session: CognitoUserSession | null) => {
-      if (err || !session || !session.isValid()) {
-        resolve(null);
-        return;
-      }
-
-      const idToken = session.getIdToken();
-      const payload = idToken.decodePayload();
-      const userId = payload['sub'];
+  // Fall back removed for identity-js; rely on stored tokens only
+  resolve(null);
       
       // Get user data from DynamoDB
       let userData;
