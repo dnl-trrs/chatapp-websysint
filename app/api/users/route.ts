@@ -20,6 +20,8 @@ export async function GET(request: NextRequest) {
   const userId = searchParams.get('userId');
   const search = searchParams.get('search');
 
+  console.log('Users API GET:', { userId, search, env: { region: process.env.NEXT_PUBLIC_AWS_REGION, hasAccessKey: !!process.env.AMPLIFY_ACCESS_KEY_ID || !!process.env.AWS_ACCESS_KEY_ID } });
+
   try {
     if (userId) {
       // Get specific user
@@ -27,7 +29,9 @@ export async function GET(request: NextRequest) {
         TableName: USERS_TABLE,
         Key: { userId }
       });
+      console.log('GetCommand:', { userId, TableName: USERS_TABLE });
       const result = await docClient.send(command);
+      console.log('GetCommand result:', result.Item);
       return NextResponse.json(result.Item || null);
     } else if (search) {
       // Search users
@@ -50,8 +54,17 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     const err = error as any;
-    console.error('Error in user API:', err?.code || err?.message || error);
-    return NextResponse.json({ error: 'Internal server error', code: err?.code }, { status: 500 });
+    console.error('Error in user API:', {
+      code: err?.code,
+      message: err?.message,
+      name: err?.name,
+      full: error
+    });
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      code: err?.code,
+      message: err?.message 
+    }, { status: 500 });
   }
 }
 
