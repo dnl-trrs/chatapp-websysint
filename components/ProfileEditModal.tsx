@@ -82,10 +82,13 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
         });
         
         if (!uploadResponse.ok) {
-          throw new Error('Failed to upload image');
+          const errorData = await uploadResponse.json();
+          console.error('Upload failed:', errorData);
+          throw new Error(errorData.error || 'Failed to upload image');
         }
         
         const uploadData = await uploadResponse.json();
+        console.log('Upload successful:', uploadData);
         photoURL = uploadData.url;
       }
       
