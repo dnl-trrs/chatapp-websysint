@@ -6,7 +6,9 @@ const nextConfig = {
     domains: [
       'firebasestorage.googleapis.com',
       'chatapp-uploads-082187380736.s3.us-east-2.amazonaws.com',
-      'chatapp-uploads-082187380736.s3.amazonaws.com'
+      'chatapp-uploads-082187380736.s3.amazonaws.com',
+      'chatapp-uploads-2025.s3.us-east-2.amazonaws.com',
+      'chatapp-uploads-2025.s3.amazonaws.com'
     ],
   },
   // Environment variables that will be available on the client side
