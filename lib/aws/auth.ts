@@ -169,14 +169,16 @@ export const getCurrentUser = async (): Promise<AuthUser | null> => {
               userData = null;
             }
 
-            resolve({
+            const resolvedUser = {
               uid: userId,
               email: payload['email'],
               displayName: userData?.displayName || payload['name'] || null,
               username: userData?.username || null,
               photoURL: userData?.photoURL || null,
               emailVerified: payload['email_verified'] || false
-            });
+            };
+            console.log('getCurrentUser resolved:', { userId, userData, resolvedUser });
+            resolve(resolvedUser);
             return;
           }
         } catch (err) {

@@ -113,6 +113,7 @@ export const useUserProfile = (uid?: string | null) => {
       try {
         const userData = await userService.getUser(uid);
         console.log('useUserProfile - Fetched user data:', userData);
+        console.log('useUserProfile - Username from DynamoDB:', userData?.username);
         if (userData) {
           // Map the DynamoDB data to our UserProfile interface
           const mappedProfile: UserProfile = {

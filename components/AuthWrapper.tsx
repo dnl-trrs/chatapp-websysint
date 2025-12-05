@@ -10,6 +10,16 @@ export default function AuthWrapper({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (!loading && !user) {
+      // Check if tokens exist in localStorage - if so, user might be loading
+      if (typeof window !== 'undefined') {
+        const idToken = localStorage.getItem('idToken');
+        if (idToken) {
+          console.log('AuthWrapper: Tokens exist but user not loaded yet, waiting...');
+          // Don't redirect yet, tokens are present so user should load soon
+          return;
+        }
+      }
+      console.log('AuthWrapper: No user and no tokens, redirecting to login');
       router.push("/login");
     }
   }, [user, loading, router]);
