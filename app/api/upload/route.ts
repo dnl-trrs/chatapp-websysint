@@ -13,25 +13,30 @@ const clientConfig: any = {
 const accessKeyId = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
 const secretAccessKey = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
 
-if (accessKeyId && secretAccessKey) {
-  clientConfig.credentials = {
-    accessKeyId,
-    secretAccessKey
-  };
-}
-
-const s3Client = new S3Client(clientConfig);
-
-const BUCKET_NAME = process.env.S3_BUCKET_NAME || 'chatapp-uploads';
-const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2';
-
-export async function POST(request: NextRequest) {
-  try {
-    // Validate bucket and credentials
-    if (!BUCKET_NAME) {
-      console.error('S3_BUCKET_NAME not configured');
-      return NextResponse.json({ error: 'S3 bucket not configured' }, { status: 500 });
+    if (accessKeyId && secretAccessKey) {
+      console.log('Using custom credentials from env vars');
+      clientConfig.credentials = {
+        accessKeyId,
+        secretAccessKey
+      };
+    } else {
+        console.log('Using default credential provider chain');
     }
+    
+    const s3Client = new S3Client(clientConfig);
+    
+    const BUCKET_NAME = process.env.S3_BUCKET_NAME || process.env.NEXT_PUBLIC_S3_BUCKET || 'chatapp-uploads';
+    const AWS_REGION = process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2';
+    
+    export async function POST(request: NextRequest) {
+      try {
+        console.log('Upload request started', { bucket: BUCKET_NAME, region: AWS_REGION });
+        
+        // Validate bucket and credentials
+        if (!BUCKET_NAME) {
+          console.error('S3_BUCKET_NAME not configured');
+          return NextResponse.json({ error: 'S3 bucket not configured' }, { status: 500 });
+        }
     
     const formData = await request.formData();
     const file = formData.get('file') as File;
