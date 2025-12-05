@@ -14,17 +14,41 @@ function generateSecretHash(username: string, clientId: string, clientSecret: st
   return hmac.digest('base64');
 }
 
-const dbClient = new DynamoDBClient({
+// Initialize DynamoDB client
+// Relies on IAM Role in production (Amplify) or custom env vars if role is restricted
+const dbClientConfig: any = {
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
   maxAttempts: 3
-});
+};
+
+// Check for custom credentials (workaround for Amplify UI restriction on AWS_ prefix)
+const accessKeyId = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const secretAccessKey = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
+if (accessKeyId && secretAccessKey) {
+  dbClientConfig.credentials = {
+    accessKeyId,
+    secretAccessKey
+  };
+}
+
+const dbClient = new DynamoDBClient(dbClientConfig);
 
 const docClient = DynamoDBDocumentClient.from(dbClient);
 const USERS_TABLE = 'chatapp-users';
 
-const cognitoClient = new CognitoIdentityProviderClient({
+const cognitoClientConfig: any = {
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2'
-});
+};
+
+if (accessKeyId && secretAccessKey) {
+  cognitoClientConfig.credentials = {
+    accessKeyId,
+    secretAccessKey
+  };
+}
+
+const cognitoClient = new CognitoIdentityProviderClient(cognitoClientConfig);
 
 export async function POST(request: NextRequest) {
   try {

@@ -3,11 +3,24 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
 import { DynamoDBDocumentClient, GetCommand, PutCommand, UpdateCommand, ScanCommand } from '@aws-sdk/lib-dynamodb';
 
 // Initialize DynamoDB client
-// Relies on IAM Role in production (Amplify) and local credentials in development
-const client = new DynamoDBClient({
+// Relies on IAM Role in production (Amplify) or custom env vars if role is restricted
+const clientConfig: any = {
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2',
   maxAttempts: 3
-});
+};
+
+// Check for custom credentials (workaround for Amplify UI restriction on AWS_ prefix)
+const accessKeyId = process.env.AMPLIFY_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+const secretAccessKey = process.env.AMPLIFY_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+
+if (accessKeyId && secretAccessKey) {
+  clientConfig.credentials = {
+    accessKeyId,
+    secretAccessKey
+  };
+}
+
+const client = new DynamoDBClient(clientConfig);
 
 const docClient = DynamoDBDocumentClient.from(client);
 const USERS_TABLE = 'chatapp-users';
