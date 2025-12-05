@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       });
       await cognitoClient.send(confirmCommand);
     } catch (confirmErr) {
-      console.warn('Warning confirming user:', confirmErr);
+      console.error('ERROR confirming user - IAM permissions issue?:', confirmErr);
       // Continue - user may still be usable
     }
 
