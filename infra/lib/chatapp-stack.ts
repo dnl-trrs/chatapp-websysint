@@ -21,7 +21,9 @@ export class ChatAppStack extends Stack {
       signInAliases: { email: true },
       autoVerify: { email: true },
       userVerification: {
-        emailStyle: VerificationEmailStyle.LINK,
+        emailStyle: VerificationEmailStyle.CODE,
+        emailSubject: 'Verify your chatapp account',
+        emailBody: 'Your verification code for chatapp is {####}',
       },
       passwordPolicy: {
         minLength: 8,
