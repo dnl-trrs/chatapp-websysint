@@ -84,9 +84,6 @@ const params = new URLSearchParams({ fileName: uploadedImage.name, fileType: upl
         if (!putRes.ok) throw new Error('Upload to S3 failed');
         const uploadResponse = { ok: true } as any;
         const uploadData = { url: publicUrl } as any;
-          method: 'POST',
-          body: formData
-        });
         
 if (!(uploadResponse && uploadResponse.ok)) {
           const errorData = await uploadResponse.json();
