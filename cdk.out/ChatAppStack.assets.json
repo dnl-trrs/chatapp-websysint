@@ -1,0 +1,34 @@
+{
+  "version": "38.0.1",
+  "files": {
+    "04d160321b85aa001381f5b82e150dc19a3b8839a7e5a59013fda6905a1da8b1": {
+      "source": {
+        "path": "asset.04d160321b85aa001381f5b82e150dc19a3b8839a7e5a59013fda6905a1da8b1",
+        "packaging": "zip"
+      },
+      "destinations": {
+        "082187380736-us-east-2": {
+          "bucketName": "cdk-hnb659fds-assets-082187380736-us-east-2",
+          "objectKey": "04d160321b85aa001381f5b82e150dc19a3b8839a7e5a59013fda6905a1da8b1.zip",
+          "region": "us-east-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-file-publishing-role-082187380736-us-east-2"
+        }
+      }
+    },
+    "120d700338de0a3a018411a8c477757504110a65a37df4587169cebaf24ecc06": {
+      "source": {
+        "path": "ChatAppStack.template.json",
+        "packaging": "file"
+      },
+      "destinations": {
+        "082187380736-us-east-2": {
+          "bucketName": "cdk-hnb659fds-assets-082187380736-us-east-2",
+          "objectKey": "120d700338de0a3a018411a8c477757504110a65a37df4587169cebaf24ecc06.json",
+          "region": "us-east-2",
+          "assumeRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-file-publishing-role-082187380736-us-east-2"
+        }
+      }
+    }
+  },
+  "dockerImages": {}
+}

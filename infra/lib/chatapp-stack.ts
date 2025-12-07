@@ -7,7 +7,7 @@ import { Table, AttributeType, BillingMode } from 'aws-cdk-lib/aws-dynamodb';
 import { Bucket, BucketEncryption, HttpMethods } from 'aws-cdk-lib/aws-s3';
 import { HttpApi, CorsHttpMethod, HttpMethod } from 'aws-cdk-lib/aws-apigatewayv2';
 import { HttpLambdaIntegration } from 'aws-cdk-lib/aws-apigatewayv2-integrations';
-import { UserPool, UserPoolClient, VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
+import { UserPool, UserPoolClient, UserPoolDomain, VerificationEmailStyle } from 'aws-cdk-lib/aws-cognito';
 import { PolicyStatement } from 'aws-cdk-lib/aws-iam';
 import * as ssm from 'aws-cdk-lib/aws-ssm';
 
@@ -36,6 +36,12 @@ export class ChatAppStack extends Stack {
     const userPoolClient = new UserPoolClient(this, 'UserPoolClient', {
       userPool,
       generateSecret: false,
+    });
+
+    userPool.addDomain('UserPoolDomain', {
+      cognitoDomain: {
+        domainPrefix: 'chatapp-websysint',
+      },
     });
 
     // DynamoDB tables (fresh)

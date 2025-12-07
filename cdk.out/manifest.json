@@ -1,0 +1,276 @@
+{
+  "version": "38.0.1",
+  "artifacts": {
+    "ChatAppStack.assets": {
+      "type": "cdk:asset-manifest",
+      "properties": {
+        "file": "ChatAppStack.assets.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+      }
+    },
+    "ChatAppStack": {
+      "type": "aws:cloudformation:stack",
+      "environment": "aws://082187380736/us-east-2",
+      "properties": {
+        "templateFile": "ChatAppStack.template.json",
+        "terminationProtection": false,
+        "validateOnSynth": false,
+        "notificationArns": [],
+        "assumeRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-deploy-role-082187380736-us-east-2",
+        "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-cfn-exec-role-082187380736-us-east-2",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-082187380736-us-east-2/120d700338de0a3a018411a8c477757504110a65a37df4587169cebaf24ecc06.json",
+        "requiresBootstrapStackVersion": 6,
+        "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
+        "additionalDependencies": [
+          "ChatAppStack.assets"
+        ],
+        "lookupRole": {
+          "arn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-lookup-role-082187380736-us-east-2",
+          "requiresBootstrapStackVersion": 8,
+          "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version"
+        }
+      },
+      "dependencies": [
+        "ChatAppStack.assets"
+      ],
+      "metadata": {
+        "/ChatAppStack/UserPool/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPool6BA7E5F2"
+          }
+        ],
+        "/ChatAppStack/UserPool/UserPoolDomain/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolUserPoolDomain9F01E991"
+          }
+        ],
+        "/ChatAppStack/UserPoolClient/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolClient2F5918F7"
+          }
+        ],
+        "/ChatAppStack/UsersTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UsersTable9725E9C8"
+          }
+        ],
+        "/ChatAppStack/ConversationsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ConversationsTableCD91EB96"
+          }
+        ],
+        "/ChatAppStack/MessagesTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MessagesTable05B58A27"
+          }
+        ],
+        "/ChatAppStack/FriendsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FriendsTableDB27419B"
+          }
+        ],
+        "/ChatAppStack/FriendRequestsTable/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FriendRequestsTableBAF16E9A"
+          }
+        ],
+        "/ChatAppStack/UploadsBucket/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsBucket5E5E9B64"
+          }
+        ],
+        "/ChatAppStack/UploadsBucket/Policy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsBucketPolicy34A32B0B"
+          }
+        ],
+        "/ChatAppStack/BffLambda/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BffLambdaServiceRoleB2E7D7BD"
+          }
+        ],
+        "/ChatAppStack/BffLambda/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BffLambdaServiceRoleDefaultPolicyD0BA9DF6"
+          }
+        ],
+        "/ChatAppStack/BffLambda/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BffLambdaC6BDBE31"
+          }
+        ],
+        "/ChatAppStack/HttpApi/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiF5A9A8A7"
+          }
+        ],
+        "/ChatAppStack/HttpApi/DefaultStage/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiDefaultStage3EEB07D6"
+          }
+        ],
+        "/ChatAppStack/HttpApi/ANY--api/BffIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiANYapiBffIntegration696EBA30"
+          }
+        ],
+        "/ChatAppStack/HttpApi/ANY--api/BffIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiANYapiBffIntegrationPermissionB8F74B0B"
+          }
+        ],
+        "/ChatAppStack/HttpApi/ANY--api/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiANYapi4E8C6C85"
+          }
+        ],
+        "/ChatAppStack/HttpApi/ANY--api--{proxy+}/BffIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiANYapiproxyBffIntegrationPermission3C22593F"
+          }
+        ],
+        "/ChatAppStack/HttpApi/ANY--api--{proxy+}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiANYapiproxy20978A2B"
+          }
+        ],
+        "/ChatAppStack/ApiBaseUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiBaseUrl"
+          }
+        ],
+        "/ChatAppStack/UserPoolId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolId"
+          }
+        ],
+        "/ChatAppStack/UserPoolClientId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolClientId"
+          }
+        ],
+        "/ChatAppStack/CognitoRegion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CognitoRegion"
+          }
+        ],
+        "/ChatAppStack/UsersTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UsersTableName"
+          }
+        ],
+        "/ChatAppStack/ConversationsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ConversationsTableName"
+          }
+        ],
+        "/ChatAppStack/MessagesTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MessagesTableName"
+          }
+        ],
+        "/ChatAppStack/FriendsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FriendsTableName"
+          }
+        ],
+        "/ChatAppStack/FriendRequestsTableName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FriendRequestsTableName"
+          }
+        ],
+        "/ChatAppStack/UploadsBucketName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsBucketName"
+          }
+        ],
+        "/ChatAppStack/ApiBaseUrlParam/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiBaseUrlParamA4949D36"
+          }
+        ],
+        "/ChatAppStack/UserPoolIdParam/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolIdParam81D6760E"
+          }
+        ],
+        "/ChatAppStack/UserPoolClientIdParam/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolClientIdParam5DF0EADC"
+          }
+        ],
+        "/ChatAppStack/CognitoRegionParam/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CognitoRegionParam776F55A1"
+          }
+        ],
+        "/ChatAppStack/UploadsBucketNameParam/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UploadsBucketNameParamA219903B"
+          }
+        ],
+        "/ChatAppStack/CDKMetadata/Default": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CDKMetadata"
+          }
+        ],
+        "/ChatAppStack/BootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "BootstrapVersion"
+          }
+        ],
+        "/ChatAppStack/CheckBootstrapVersion": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CheckBootstrapVersion"
+          }
+        ]
+      },
+      "displayName": "ChatAppStack"
+    },
+    "Tree": {
+      "type": "cdk:tree",
+      "properties": {
+        "file": "tree.json"
+      }
+    }
+  }
+}
