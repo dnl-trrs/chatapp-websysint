@@ -1,9 +1,10 @@
 // Client-side DynamoDB service that uses API routes
+import { apiFetch } from '../apiClient';
 
 // User operations
 export const userService = {
   async createUser(userId: string, userData: any) {
-    const response = await fetch('/api/users', {
+    const response = await apiFetch('/api/users', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, ...userData })
@@ -13,13 +14,13 @@ export const userService = {
   },
 
   async getUser(userId: string) {
-    const response = await fetch(`/api/users?userId=${userId}`);
+    const response = await apiFetch(`/api/users?userId=${userId}`);
     if (!response.ok) throw new Error('Failed to get user');
     return response.json();
   },
 
   async updateUser(userId: string, updates: any) {
-    const response = await fetch('/api/users', {
+    const response = await apiFetch('/api/users', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, updates })
@@ -29,7 +30,7 @@ export const userService = {
   },
 
   async searchUsers(searchTerm: string) {
-    const response = await fetch(`/api/users?search=${encodeURIComponent(searchTerm)}`);
+    const response = await apiFetch(`/api/users?search=${encodeURIComponent(searchTerm)}`);
     if (!response.ok) throw new Error('Failed to search users');
     return response.json();
   }
@@ -39,7 +40,7 @@ export const userService = {
 // These will be implemented with their respective API routes
 export const conversationService = {
   async createConversation(conversationData: any) {
-    const response = await fetch('/api/conversations', {
+    const response = await apiFetch('/api/conversations', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(conversationData)
@@ -49,19 +50,19 @@ export const conversationService = {
   },
   
   async getConversation(conversationId: string) {
-    const response = await fetch(`/api/conversations?conversationId=${conversationId}`);
+    const response = await apiFetch(`/api/conversations?conversationId=${conversationId}`);
     if (!response.ok) return null;
     return response.json();
   },
   
   async getUserConversations(userId: string) {
-    const response = await fetch(`/api/conversations?userId=${userId}`);
+    const response = await apiFetch(`/api/conversations?userId=${userId}`);
     if (!response.ok) return [];
     return response.json();
   },
   
   async updateConversation(conversationId: string, updates: any) {
-    const response = await fetch('/api/conversations', {
+    const response = await apiFetch('/api/conversations', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conversationId, updates })
@@ -73,7 +74,7 @@ export const conversationService = {
 
 export const messageService = {
   async sendMessage(conversationId: string, messageData: any) {
-    const response = await fetch('/api/messages', {
+    const response = await apiFetch('/api/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ conversationId, ...messageData })
@@ -83,7 +84,7 @@ export const messageService = {
   },
   
   async getMessages(conversationId: string, limit: number = 50) {
-    const response = await fetch(`/api/messages?conversationId=${conversationId}&limit=${limit}`);
+    const response = await apiFetch(`/api/messages?conversationId=${conversationId}&limit=${limit}`);
     if (!response.ok) return [];
     return response.json();
   }
@@ -96,13 +97,13 @@ export const friendService = {
   },
   
   async getFriends(userId: string) {
-    const response = await fetch(`/api/friends?userId=${userId}`);
+    const response = await apiFetch(`/api/friends?userId=${userId}`);
     if (!response.ok) throw new Error('Failed to get friends');
     return response.json();
   },
   
   async removeFriend(userId: string, friendId: string) {
-    const response = await fetch('/api/friends', {
+    const response = await apiFetch('/api/friends', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, friendId })
@@ -111,7 +112,7 @@ export const friendService = {
   },
   
   async sendFriendRequest(fromUserId: string, toUserId: string) {
-    const response = await fetch('/api/friend-requests', {
+    const response = await apiFetch('/api/friend-requests', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ fromUserId, toUserId })
@@ -124,13 +125,13 @@ export const friendService = {
   },
   
   async getPendingRequests(userId: string) {
-    const response = await fetch(`/api/friend-requests?userId=${userId}`);
+    const response = await apiFetch(`/api/friend-requests?userId=${userId}`);
     if (!response.ok) throw new Error('Failed to get pending requests');
     return response.json();
   },
   
   async acceptFriendRequest(requestId: string) {
-    const response = await fetch('/api/friend-requests', {
+    const response = await apiFetch('/api/friend-requests', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId, action: 'accept' })
@@ -139,7 +140,7 @@ export const friendService = {
   },
   
   async rejectFriendRequest(requestId: string) {
-    const response = await fetch('/api/friend-requests', {
+    const response = await apiFetch('/api/friend-requests', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ requestId, action: 'reject' })

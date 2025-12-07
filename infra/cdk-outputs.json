@@ -1,0 +1,13 @@
+{
+  "ChatAppStack.ApiBaseUrl": "https://yoqhfdlhdg.execute-api.us-east-2.amazonaws.com",
+  "ChatAppStack.CognitoRegion": "us-east-2",
+  "ChatAppStack.ConversationsTableName": "ChatAppStack-ConversationsTableCD91EB96-TJZOJUNEJKLQ",
+  "ChatAppStack.FriendRequestsTableName": "ChatAppStack-FriendRequestsTableBAF16E9A-1BELWNGOUPM54",
+  "ChatAppStack.FriendsTableName": "ChatAppStack-FriendsTableDB27419B-QXMAGZA74NH0",
+  "ChatAppStack.MessagesTableName": "ChatAppStack-MessagesTable05B58A27-1O3VJMFPY1UE1",
+  "ChatAppStack.UploadsBucketName": "chatappstack-uploadsbucket5e5e9b64-mpvu1zra6agw",
+  "ChatAppStack.UserPoolClientId": "35v94fv64s1t9vehe0khje8fa8",
+  "ChatAppStack.UserPoolId": "us-east-2_nSp5GX0vk",
+  "ChatAppStack.UsersTableName": "ChatAppStack-UsersTable9725E9C8-1E03FZ0T93E0R",
+  "Stack_ARN": "arn:aws:cloudformation:us-east-2:082187380736:stack/ChatAppStack/0e127d50-d3a6-11f0-bcfe-0a0182e73b6d"
+}

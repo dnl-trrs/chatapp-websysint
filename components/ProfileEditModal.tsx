@@ -76,18 +76,25 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
         formData.append('userId', user.uid);
         formData.append('type', 'profile');
         
-        const uploadResponse = await fetch('/api/upload', {
+const params = new URLSearchParams({ fileName: uploadedImage.name, fileType: uploadedImage.type, userId: user.uid, type: 'profile' });
+        const presignRes = await fetch((process.env.NEXT_PUBLIC_API_BASE_URL || '') + `/api/upload?${params.toString()}`);
+        if (!presignRes.ok) throw new Error('Failed to get upload URL');
+        const { signedUrl, publicUrl } = await presignRes.json();
+        const putRes = await fetch(signedUrl, { method: 'PUT', headers: { 'Content-Type': uploadedImage.type }, body: uploadedImage });
+        if (!putRes.ok) throw new Error('Upload to S3 failed');
+        const uploadResponse = { ok: true } as any;
+        const uploadData = { url: publicUrl } as any;
           method: 'POST',
           body: formData
         });
         
-        if (!uploadResponse.ok) {
+if (!(uploadResponse && uploadResponse.ok)) {
           const errorData = await uploadResponse.json();
           console.error('Upload failed:', errorData);
           throw new Error(errorData.error || 'Failed to upload image');
         }
         
-        const uploadData = await uploadResponse.json();
+// already have uploadData from presign step
         console.log('Upload successful:', uploadData);
         photoURL = uploadData.url;
       }
@@ -107,7 +114,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose }) 
       
       console.log('Saving profile updates:', updates); // Debug log
       
-      const response = await fetch('/api/users', {
+      const response = await fetch(((process.env.NEXT_PUBLIC_API_BASE_URL || '')) + '/api/users', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -1,0 +1,19 @@
+{
+  "name": "chatapp-bff",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/bff.js",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.916.0",
+    "@aws-sdk/lib-dynamodb": "^3.916.0",
+    "@aws-sdk/client-s3": "^3.916.0",
+    "@aws-sdk/s3-request-presigner": "^3.916.0"
+  },
+  "devDependencies": {
+    "typescript": "^5"
+  }
+}

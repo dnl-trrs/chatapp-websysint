@@ -7,6 +7,10 @@ frontend:
         - node --version
         - npm --version
         - npm install
+        - |
+          aws ssm get-parameters-by-path --path "/chatapp/prod/" --query "Parameters" --output json > ssm_params.json
+          jq -r '.[] | .Name + "=" + .Value' ssm_params.json | sed 's|/chatapp/prod/||' > .env.local
+          rm ssm_params.json
     build:
       commands:
         - npm run build

@@ -1,5 +1,6 @@
 // Use API endpoint for uploads and DynamoDB for profile data
 import { userService } from './aws/dynamodb-client';
+import { apiFetch } from './apiClient';
 
 interface ProfileUpdateData {
   displayName?: string;
@@ -27,22 +28,14 @@ export const uploadProfilePicture = async (
 
   try {
     // Upload via API endpoint
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('userId', userId);
-    formData.append('type', 'profile');
-
-    const response = await fetch('/api/upload', {
-      method: 'POST',
-      body: formData
-    });
-
-    if (!response.ok) {
-      throw new Error('Upload failed');
-    }
-
-    const data = await response.json();
-    return data.url;
+    // Presigned upload flow via Lambda API
+    const params = new URLSearchParams({ fileName: file.name, fileType: file.type, userId, type: 'profile' });
+    const presignRes = await apiFetch(`/api/upload?${params.toString()}`);
+    if (!presignRes.ok) throw new Error('Failed to get upload URL');
+    const { signedUrl, publicUrl } = await presignRes.json();
+    const putRes = await fetch(signedUrl, { method: 'PUT', headers: { 'Content-Type': file.type }, body: file });
+    if (!putRes.ok) throw new Error('Upload to S3 failed');
+    return publicUrl;
   } catch (error: any) {
     console.error('Error uploading profile picture:', error);
     throw new Error(`Failed to upload profile picture: ${error.message || error}`);
