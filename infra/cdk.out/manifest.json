@@ -19,7 +19,7 @@
         "notificationArns": [],
         "assumeRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-deploy-role-082187380736-us-east-2",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-cfn-exec-role-082187380736-us-east-2",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-082187380736-us-east-2/c1a439ee91b0aad506e427d1a9362a2937024c51d3ef6904dbcf4732f965cce8.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-082187380736-us-east-2/1efaa6d5904855ef8415b4595ad8a9a06a0136513722c89fa28c6b28b86153c4.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -39,6 +39,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UserPool6BA7E5F2"
+          }
+        ],
+        "/ChatAppStack/UserPool/UserPoolDomain/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "UserPoolUserPoolDomain9F01E991"
           }
         ],
         "/ChatAppStack/UserPoolClient/Resource": [
@@ -209,6 +215,12 @@
             "data": "UploadsBucketName"
           }
         ],
+        "/ChatAppStack/CognitoDomain": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CognitoDomain"
+          }
+        ],
         "/ChatAppStack/ApiBaseUrlParam/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -237,6 +249,12 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UploadsBucketNameParamA219903B"
+          }
+        ],
+        "/ChatAppStack/CognitoDomainParam/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CognitoDomainParam8CC6A8D8"
           }
         ],
         "/ChatAppStack/CDKMetadata/Default": [

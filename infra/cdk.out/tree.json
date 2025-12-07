@@ -36,6 +36,8 @@
                     "autoVerifiedAttributes": [
                       "email"
                     ],
+                    "emailVerificationMessage": "Your verification code for chatapp is {####}",
+                    "emailVerificationSubject": "Verify your chatapp account",
                     "policies": {
                       "passwordPolicy": {
                         "minimumLength": 8,
@@ -51,15 +53,42 @@
                     ],
                     "userPoolName": "chatapp-user-pool",
                     "verificationMessageTemplate": {
-                      "defaultEmailOption": "CONFIRM_WITH_LINK",
-                      "emailMessageByLink": "Verify your account by clicking on {##Verify Email##}",
-                      "emailSubjectByLink": "Verify your new account",
+                      "defaultEmailOption": "CONFIRM_WITH_CODE",
+                      "emailMessage": "Your verification code for chatapp is {####}",
+                      "emailSubject": "Verify your chatapp account",
                       "smsMessage": "The verification code to your new account is {####}"
                     }
                   }
                 },
                 "constructInfo": {
                   "fqn": "aws-cdk-lib.aws_cognito.CfnUserPool",
+                  "version": "2.164.0"
+                }
+              },
+              "UserPoolDomain": {
+                "id": "UserPoolDomain",
+                "path": "ChatAppStack/UserPool/UserPoolDomain",
+                "children": {
+                  "Resource": {
+                    "id": "Resource",
+                    "path": "ChatAppStack/UserPool/UserPoolDomain/Resource",
+                    "attributes": {
+                      "aws:cdk:cloudformation:type": "AWS::Cognito::UserPoolDomain",
+                      "aws:cdk:cloudformation:props": {
+                        "domain": "chatapp-websysint",
+                        "userPoolId": {
+                          "Ref": "UserPool6BA7E5F2"
+                        }
+                      }
+                    },
+                    "constructInfo": {
+                      "fqn": "aws-cdk-lib.aws_cognito.CfnUserPoolDomain",
+                      "version": "2.164.0"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_cognito.UserPoolDomain",
                   "version": "2.164.0"
                 }
               }
@@ -1179,6 +1208,14 @@
               "version": "2.164.0"
             }
           },
+          "CognitoDomain": {
+            "id": "CognitoDomain",
+            "path": "ChatAppStack/CognitoDomain",
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.CfnOutput",
+              "version": "2.164.0"
+            }
+          },
           "ApiBaseUrlParam": {
             "id": "ApiBaseUrlParam",
             "path": "ChatAppStack/ApiBaseUrlParam",
@@ -1306,6 +1343,34 @@
                     "type": "String",
                     "value": {
                       "Ref": "UploadsBucket5E5E9B64"
+                    }
+                  }
+                },
+                "constructInfo": {
+                  "fqn": "aws-cdk-lib.aws_ssm.CfnParameter",
+                  "version": "2.164.0"
+                }
+              }
+            },
+            "constructInfo": {
+              "fqn": "aws-cdk-lib.aws_ssm.StringParameter",
+              "version": "2.164.0"
+            }
+          },
+          "CognitoDomainParam": {
+            "id": "CognitoDomainParam",
+            "path": "ChatAppStack/CognitoDomainParam",
+            "children": {
+              "Resource": {
+                "id": "Resource",
+                "path": "ChatAppStack/CognitoDomainParam/Resource",
+                "attributes": {
+                  "aws:cdk:cloudformation:type": "AWS::SSM::Parameter",
+                  "aws:cdk:cloudformation:props": {
+                    "name": "/chatapp/prod/NEXT_PUBLIC_COGNITO_DOMAIN",
+                    "type": "String",
+                    "value": {
+                      "Ref": "UserPoolUserPoolDomain9F01E991"
                     }
                   }
                 },

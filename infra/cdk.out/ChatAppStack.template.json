@@ -21,6 +21,8 @@
     "AutoVerifiedAttributes": [
      "email"
     ],
+    "EmailVerificationMessage": "Your verification code for chatapp is {####}",
+    "EmailVerificationSubject": "Verify your chatapp account",
     "Policies": {
      "PasswordPolicy": {
       "MinimumLength": 8,
@@ -36,9 +38,9 @@
      "email"
     ],
     "VerificationMessageTemplate": {
-     "DefaultEmailOption": "CONFIRM_WITH_LINK",
-     "EmailMessageByLink": "Verify your account by clicking on {##Verify Email##}",
-     "EmailSubjectByLink": "Verify your new account",
+     "DefaultEmailOption": "CONFIRM_WITH_CODE",
+     "EmailMessage": "Your verification code for chatapp is {####}",
+     "EmailSubject": "Verify your chatapp account",
      "SmsMessage": "The verification code to your new account is {####}"
     }
    },
@@ -46,6 +48,18 @@
    "DeletionPolicy": "Delete",
    "Metadata": {
     "aws:cdk:path": "ChatAppStack/UserPool/Resource"
+   }
+  },
+  "UserPoolUserPoolDomain9F01E991": {
+   "Type": "AWS::Cognito::UserPoolDomain",
+   "Properties": {
+    "Domain": "chatapp-websysint",
+    "UserPoolId": {
+     "Ref": "UserPool6BA7E5F2"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ChatAppStack/UserPool/UserPoolDomain/Resource"
    }
   },
   "UserPoolClient2F5918F7": {
@@ -839,10 +853,23 @@
     "aws:cdk:path": "ChatAppStack/UploadsBucketNameParam/Resource"
    }
   },
+  "CognitoDomainParam8CC6A8D8": {
+   "Type": "AWS::SSM::Parameter",
+   "Properties": {
+    "Name": "/chatapp/prod/NEXT_PUBLIC_COGNITO_DOMAIN",
+    "Type": "String",
+    "Value": {
+     "Ref": "UserPoolUserPoolDomain9F01E991"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "ChatAppStack/CognitoDomainParam/Resource"
+   }
+  },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11Q0W7CMAz8Ft6Dx7pp74A0sZcNle0Zua2pDG1SxSkIRfn3KQmFaU9351zuLBfw/PYKixleZF43p3nHFfidw/qk8CJ7X5tWszPgf4Ts1phOrQ/6ziey7pi0+/uUJ0E1V429aSrw31h1FC2JBCUv4FdjfaL078YybE3H9fUxvuksVigUVId91eBem4aOAp8J3kddOzZaMfbgS5PrEj4SM4v1exQhJ7CMcAsEvz7oe060k+1ZhI0OCgdu0dEFr+cC/Ma5YTlwNEWIcuewTZ2ZxFFpRpfZh3bUWpyC/8nkC0qkj+e3rNstWuzJkU1rTCIEVZKY0dak0uKxinUbTV+jG8Z0zckSVDwQHOXpXBRQLGAxOwrz3I7acU9QZvwFkY6OuQUCAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/11RQW7CMBB8C3fj0rTqHahQe2lRaM9okyzRQmxHXgeELP+9sp0A6mlm1uOZlV3I57dXuZjBhed1c5p3VEm/c1CfBFx472vTanJG+l9GuzWmE+uDvvGJvBsFpB+Pxskk1x2hdo+GPAmiuWpQpqmk/4Gqw2hJJAh+kX411CdM90aWYWs6qq/38aizWAFjEB2oqoG9Ng0eWX4l2Ay6dmS0IFDSlybXJbwnZhbr98CMjuUywhgo/fqgbznRjlYRMxkdBPTUgsMLXM+F9B/O9cueoilClDsHberMJI5KM7jMPrXD1sIU/E8mXxDMKv6PJd1uwYJChzatMYkQRIlsBlujSIvHKtJtNH0Prh/Sa06WIOIDySM/nYtCFgu5mB2ZaG4H7UihLDP+AWfDEmEmAgAA"
    },
    "Metadata": {
     "aws:cdk:path": "ChatAppStack/CDKMetadata/Default"
@@ -899,6 +926,11 @@
   "UploadsBucketName": {
    "Value": {
     "Ref": "UploadsBucket5E5E9B64"
+   }
+  },
+  "CognitoDomain": {
+   "Value": {
+    "Ref": "UserPoolUserPoolDomain9F01E991"
    }
   }
  },

@@ -74,6 +74,20 @@ AWS_SECRET_ACCESS_KEY=your-secret-key
 AWS_ACCOUNT_ID=your-account-id
 ```
 
+If you deployed the CDK stack, you can keep the local file and AWS Amplify in sync with the outputs produced during deployment:
+
+1. `cd infra && cdk deploy`
+2. Populate AWS Systems Manager Parameter Store with the latest outputs:
+   ```bash
+   node scripts/sync-ssm-from-outputs.js
+   ```
+   The script respects `SSM_BASE_PATH` (default `/chatapp/prod/`) and `SSM_REGION`/`AWS_REGION`.
+3. Generate a local `.env.local` directly from those parameters when developing locally:
+   ```bash
+   node scripts/generate-env-from-ssm.js
+   ```
+4. Configure the same parameters inside the Amplify console (under backend environment variables) by pointing it to the same Parameter Store path.
+
 ### 4. Run the Development Server
 
 ```bash
