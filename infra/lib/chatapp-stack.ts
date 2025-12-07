@@ -38,7 +38,7 @@ export class ChatAppStack extends Stack {
       generateSecret: false,
     });
 
-    userPool.addDomain('UserPoolDomain', {
+    const userPoolDomain = userPool.addDomain('UserPoolDomain', {
       cognitoDomain: {
         domainPrefix: 'chatapp-websysint',
       },
@@ -165,6 +165,7 @@ export class ChatAppStack extends Stack {
     new CfnOutput(this, 'FriendsTableName', { value: friendsTable.tableName });
     new CfnOutput(this, 'FriendRequestsTableName', { value: friendRequestsTable.tableName });
     new CfnOutput(this, 'UploadsBucketName', { value: uploadsBucket.bucketName });
+    new CfnOutput(this, 'CognitoDomain', { value: userPoolDomain.domainName });
 
     // Store outputs in SSM Parameter Store
     new ssm.StringParameter(this, 'ApiBaseUrlParam', {
@@ -186,6 +187,10 @@ export class ChatAppStack extends Stack {
     new ssm.StringParameter(this, 'UploadsBucketNameParam', {
         parameterName: '/chatapp/prod/NEXT_PUBLIC_S3_BUCKET',
         stringValue: uploadsBucket.bucketName,
+    });
+    new ssm.StringParameter(this, 'CognitoDomainParam', {
+        parameterName: '/chatapp/prod/NEXT_PUBLIC_COGNITO_DOMAIN',
+        stringValue: userPoolDomain.domainName,
     });
   }
 }
