@@ -226,7 +226,8 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                 displayName: profile.displayName || request.fromDisplayName || request.toDisplayName,
                 username: profile.username || request.fromUsername || request.toUsername,
                 photoURL: profile.photoURL,
-                status: profile.status || 'offline'
+                status: profile.status || 'offline',
+                addedAt: request.createdAt || Date.now()
               }
             ];
           });
