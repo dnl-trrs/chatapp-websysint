@@ -84,6 +84,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // Fetch conversation to determine hidden state
+    let conversationData: any = null;
+    try {
+      const convoResult = await docClient.send(new GetCommand({
+        TableName: CONVERSATIONS_TABLE,
+        Key: { conversationId }
+      }));
+      conversationData = convoResult.Item || null;
+    } catch (err) {
+      console.warn('Could not fetch conversation before sending message:', err);
+    }
+
     const timestamp = Date.now();
     const messageId = `msg_${timestamp}_${Math.random().toString(36).substr(2, 9)}`;
     
@@ -115,10 +127,14 @@ export async function POST(request: NextRequest) {
     await docClient.send(command);
     
     // Update conversation's last message
+    const participants = conversationData?.participants || [];
+    const hiddenBy = conversationData?.hiddenBy || [];
+    const cleanedHiddenBy = hiddenBy.filter((id: string) => !participants.includes(id));
+
     const updateCommand = new UpdateCommand({
       TableName: CONVERSATIONS_TABLE,
       Key: { conversationId },
-      UpdateExpression: 'SET lastMessage = :lastMessage, lastMessageTime = :timestamp, updatedAt = :timestamp',
+      UpdateExpression: 'SET lastMessage = :lastMessage, lastMessageTime = :timestamp, updatedAt = :timestamp, hiddenBy = :hiddenBy',
       ExpressionAttributeValues: {
         ':lastMessage': {
           text,
@@ -126,7 +142,8 @@ export async function POST(request: NextRequest) {
           senderDisplayName: senderData.displayName || 'Unknown',
           timestamp
         },
-        ':timestamp': timestamp
+        ':timestamp': timestamp,
+        ':hiddenBy': cleanedHiddenBy
       }
     });
     

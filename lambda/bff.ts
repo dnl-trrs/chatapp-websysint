@@ -281,6 +281,15 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         const user = await doc.send(new GetCommand({ TableName: USERS_TABLE, Key: { userId: senderId } }));
         const senderData: any = user.Item || {};
 
+        // Fetch conversation to clean up hidden state
+        let conversationData: any = null;
+        try {
+          const convoRes = await doc.send(new GetCommand({ TableName: CONVERSATIONS_TABLE, Key: { conversationId } }));
+          conversationData = convoRes.Item || null;
+        } catch (err) {
+          console.warn('Could not fetch conversation before message send:', err);
+        }
+
         // Save message
         await doc.send(new PutCommand({
           TableName: MESSAGES_TABLE,
@@ -299,10 +308,14 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         }));
 
         // Update conversation last message
+        const participants = conversationData?.participants || [];
+        const hiddenBy = conversationData?.hiddenBy || [];
+        const cleanedHiddenBy = hiddenBy.filter((id: string) => !participants.includes(id));
+
         await doc.send(new UpdateCommand({
           TableName: CONVERSATIONS_TABLE,
           Key: { conversationId },
-          UpdateExpression: 'SET lastMessage = :last, lastMessageTime = :ts, updatedAt = :ts',
+          UpdateExpression: 'SET lastMessage = :last, lastMessageTime = :ts, updatedAt = :ts, hiddenBy = :hiddenBy',
           ExpressionAttributeValues: {
             ':last': {
               text: text ?? content,
@@ -310,7 +323,8 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
               senderDisplayName: senderData.displayName || 'Unknown',
               timestamp
             },
-            ':ts': timestamp
+            ':ts': timestamp,
+            ':hiddenBy': cleanedHiddenBy
           }
         }));
 
