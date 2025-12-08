@@ -16,7 +16,11 @@ if (akid && sak) dbConfig.credentials = { accessKeyId: akid, secretAccessKey: sa
 const dbClient = new DynamoDBClient(dbConfig);
 
 const docClient = DynamoDBDocumentClient.from(dbClient);
-const USERS_TABLE = 'chatapp-users';
+const USERS_TABLE =
+  process.env.NEXT_PUBLIC_DYNAMODB_USERS_TABLE ||
+  process.env.DYNAMODB_USERS_TABLE ||
+  process.env.USERS_TABLE_NAME ||
+  'chatapp-users';
 const USER_POOL_ID = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || '';
 
 export async function POST(request: NextRequest) {

@@ -1,14 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { signInUser } from "@/lib/aws/auth";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [username, setUsername] = useState("");
+  const [displayName, setDisplayName] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -24,7 +23,7 @@ export default function RegisterPage() {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, username })
+        body: JSON.stringify({ email, password, displayName })
       });
 
       if (!res.ok) {
@@ -77,14 +76,14 @@ export default function RegisterPage() {
           <div className="space-y-3">
             <div>
               <label className="block text-[#a1a1aa] text-xs font-semibold uppercase mb-2 tracking-wider">
-                Username (Display Name)
+                Display Name
               </label>
               <input
                 className="w-full bg-[#18181b] text-[#e4e4e7] placeholder-[#71717a] px-3 py-2 rounded-lg border border-[rgba(255,255,255,0.1)] outline-none focus:border-[#818cf8] focus:bg-[#1f1f23] transition-all text-sm"
                 type="text"
                 placeholder="Your display name"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
                 required
                 disabled={loading}
                 minLength={2}

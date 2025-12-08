@@ -38,6 +38,11 @@ export class ChatAppStack extends Stack {
     const userPoolClient = new UserPoolClient(this, 'UserPoolClient', {
       userPool,
       generateSecret: false,
+      authFlows: {
+        userPassword: true,
+        userSrp: true
+      },
+      preventUserExistenceErrors: true
     });
 
     const userPoolDomain = userPool.addDomain('UserPoolDomain', {

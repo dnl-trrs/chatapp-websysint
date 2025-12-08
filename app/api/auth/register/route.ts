@@ -36,7 +36,11 @@ if (accessKeyId && secretAccessKey) {
 const dbClient = new DynamoDBClient(dbClientConfig);
 
 const docClient = DynamoDBDocumentClient.from(dbClient);
-const USERS_TABLE = 'chatapp-users';
+const USERS_TABLE =
+  process.env.NEXT_PUBLIC_DYNAMODB_USERS_TABLE ||
+  process.env.DYNAMODB_USERS_TABLE ||
+  process.env.USERS_TABLE_NAME ||
+  'chatapp-users';
 
 const cognitoClientConfig: any = {
   region: process.env.NEXT_PUBLIC_AWS_REGION || 'us-east-2'
@@ -53,14 +57,27 @@ const cognitoClient = new CognitoIdentityProviderClient(cognitoClientConfig);
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, username } = await request.json();
+    const { email, password, username, displayName } = await request.json();
 
-    if (!email || !password || !username) {
+    const trimmedEmail = typeof email === 'string' ? email.trim() : '';
+    const trimmedDisplayName = typeof displayName === 'string'
+      ? displayName.trim()
+      : typeof username === 'string'
+        ? username.trim()
+        : '';
+
+    if (!trimmedEmail || !password || !trimmedDisplayName) {
       return NextResponse.json(
-        { error: 'Email, password, and username are required' },
+        { error: 'Email, password, and display name are required' },
         { status: 400 }
       );
     }
+
+    const emailLower = trimmedEmail.toLowerCase();
+    const normalizedHandleBase = trimmedDisplayName.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const emailHandleFallback = trimmedEmail.split('@')[0]?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user';
+    const normalizedHandle = (normalizedHandleBase || emailHandleFallback || 'user').slice(0, 32);
+    const displayNameLower = trimmedDisplayName.toLowerCase();
 
     const clientId = process.env.NEXT_PUBLIC_COGNITO_CLIENT_ID || '';
     const userPoolId = process.env.NEXT_PUBLIC_COGNITO_USER_POOL_ID || '';
@@ -72,12 +89,12 @@ export async function POST(request: NextRequest) {
     // Use email as Cognito username
     const signUpCommand = new SignUpCommand({
       ClientId: clientId,
-      Username: email,
+      Username: trimmedEmail,
       Password: password,
       ...(secretHash ? { SecretHash: secretHash } : {}),
       UserAttributes: [
-        { Name: 'email', Value: email },
-        { Name: 'name', Value: username }
+        { Name: 'email', Value: trimmedEmail },
+        { Name: 'name', Value: trimmedDisplayName }
       ]
     });
 
@@ -101,9 +118,12 @@ export async function POST(request: NextRequest) {
           TableName: USERS_TABLE,
           Item: {
             userId,
-            email,
-            displayName: username,
-            username: username.toLowerCase(),
+            email: trimmedEmail,
+            emailLower,
+            displayName: trimmedDisplayName,
+            displayNameLower,
+            username: normalizedHandle,
+            usernameLower: normalizedHandle,
             photoURL: '',
             bio: '',
             status: 'online',
@@ -145,9 +165,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { 
         userId, 
-        email, 
-        username,
-        displayName: username,
+        email: trimmedEmail, 
+        username: normalizedHandle,
+        displayName: trimmedDisplayName,
         userCreated,
         userData
       },

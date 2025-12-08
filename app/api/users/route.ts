@@ -23,7 +23,11 @@ if (accessKeyId && secretAccessKey) {
 const client = new DynamoDBClient(clientConfig);
 
 const docClient = DynamoDBDocumentClient.from(client);
-const USERS_TABLE = 'chatapp-users';
+const USERS_TABLE =
+  process.env.NEXT_PUBLIC_DYNAMODB_USERS_TABLE ||
+  process.env.DYNAMODB_USERS_TABLE ||
+  process.env.USERS_TABLE_NAME ||
+  'chatapp-users';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -42,17 +46,26 @@ export async function GET(request: NextRequest) {
       const result = await docClient.send(command);
       return NextResponse.json(result.Item || null);
     } else if (search) {
+      const trimmedSearch = search.trim();
+      if (!trimmedSearch) {
+        return NextResponse.json([], { status: 200 });
+      }
+      const searchLower = trimmedSearch.toLowerCase();
       // Search users
       const command = new ScanCommand({
         TableName: USERS_TABLE,
-        FilterExpression: 'contains(#name, :search) OR contains(#email, :search) OR contains(#username, :search)',
+        FilterExpression: 'contains(#displayNameLower, :searchLower) OR contains(#usernameLower, :searchLower) OR contains(#emailLower, :searchLower) OR contains(#displayName, :searchOriginal) OR contains(#username, :searchOriginal) OR contains(#email, :searchOriginal)',
         ExpressionAttributeNames: {
-          '#name': 'displayName',
+          '#displayName': 'displayName',
+          '#displayNameLower': 'displayNameLower',
           '#email': 'email',
-          '#username': 'username'
+          '#emailLower': 'emailLower',
+          '#username': 'username',
+          '#usernameLower': 'usernameLower'
         },
         ExpressionAttributeValues: {
-          ':search': search.toLowerCase()
+          ':searchOriginal': trimmedSearch,
+          ':searchLower': searchLower
         }
       });
       const result = await docClient.send(command);
@@ -79,14 +92,37 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing userId' }, { status: 400 });
     }
 
+    const now = Date.now();
+    const normalizedEmail = typeof userData.email === 'string' ? userData.email.trim() : undefined;
+    const displayFromPayload =
+      typeof userData.displayName === 'string' && userData.displayName.trim()
+        ? userData.displayName.trim()
+        : undefined;
+    const fallbackDisplay =
+      typeof userData.username === 'string' && userData.username.trim()
+        ? userData.username.trim()
+        : normalizedEmail?.split('@')[0] || 'User';
+    const resolvedDisplayName = displayFromPayload || fallbackDisplay;
+    const resolvedUsername =
+      typeof userData.username === 'string' && userData.username.trim()
+        ? userData.username.trim()
+        : resolvedDisplayName.replace(/\s+/g, '').toLowerCase();
+    const item: Record<string, any> = {
+      userId,
+      ...userData,
+      email: normalizedEmail ?? userData.email,
+      emailLower: normalizedEmail ? normalizedEmail.toLowerCase() : userData.emailLower,
+      displayName: resolvedDisplayName,
+      displayNameLower: resolvedDisplayName.toLowerCase(),
+      username: resolvedUsername,
+      usernameLower: resolvedUsername.toLowerCase(),
+      createdAt: now,
+      updatedAt: now
+    };
+
     const command = new PutCommand({
       TableName: USERS_TABLE,
-      Item: {
-        userId,
-        ...userData,
-        createdAt: Date.now(),
-        updatedAt: Date.now()
-      }
+      Item: item
     });
 
     await docClient.send(command);
@@ -106,16 +142,31 @@ export async function PUT(request: NextRequest) {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
 
+    const processedUpdates: Record<string, any> = { ...updates };
+
+    if (typeof processedUpdates.displayName === 'string') {
+      processedUpdates.displayName = processedUpdates.displayName.trim();
+      processedUpdates.displayNameLower = processedUpdates.displayName.toLowerCase();
+    }
+    if (typeof processedUpdates.username === 'string') {
+      processedUpdates.username = processedUpdates.username.trim();
+      processedUpdates.usernameLower = processedUpdates.username.toLowerCase();
+    }
+    if (typeof processedUpdates.email === 'string') {
+      processedUpdates.email = processedUpdates.email.trim();
+      processedUpdates.emailLower = processedUpdates.email.toLowerCase();
+    }
+
     const updateExpressions: string[] = [];
     const expressionAttributeValues: any = {};
     const expressionAttributeNames: any = {};
 
-    Object.keys(updates).forEach((key, index) => {
+    Object.keys(processedUpdates).forEach((key, index) => {
       const attrName = `#attr${index}`;
       const attrValue = `:val${index}`;
       updateExpressions.push(`${attrName} = ${attrValue}`);
       expressionAttributeNames[attrName] = key;
-      expressionAttributeValues[attrValue] = updates[key];
+      expressionAttributeValues[attrValue] = processedUpdates[key];
     });
 
     const command = new UpdateCommand({

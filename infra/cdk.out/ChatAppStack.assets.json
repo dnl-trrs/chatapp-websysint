@@ -15,7 +15,7 @@
         }
       }
     },
-    "1efaa6d5904855ef8415b4595ad8a9a06a0136513722c89fa28c6b28b86153c4": {
+    "97353d274330b9099beaeff1a28554d01f2cc492ac2cf3cd98fc9afb58eadb1c": {
       "source": {
         "path": "ChatAppStack.template.json",
         "packaging": "file"
@@ -23,7 +23,7 @@
       "destinations": {
         "082187380736-us-east-2": {
           "bucketName": "cdk-hnb659fds-assets-082187380736-us-east-2",
-          "objectKey": "1efaa6d5904855ef8415b4595ad8a9a06a0136513722c89fa28c6b28b86153c4.json",
+          "objectKey": "97353d274330b9099beaeff1a28554d01f2cc492ac2cf3cd98fc9afb58eadb1c.json",
           "region": "us-east-2",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-file-publishing-role-082187380736-us-east-2"
         }

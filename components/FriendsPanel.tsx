@@ -427,12 +427,12 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
               // Add Friend Tab
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-[#a1a1aa] mb-1 block">Search by username</label>
+                  <label className="text-xs text-[#a1a1aa] mb-1 block">Search by name or username</label>
                   <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Enter username..."
+                    placeholder="Search for friends..."
                     className="input w-full text-sm"
                     autoFocus
                   />
@@ -453,31 +453,34 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                     <p className="text-[10px] text-[#71717a] mb-1">
                       Found {searchResults.length} user{searchResults.length !== 1 ? 's' : ''}
                     </p>
-                    {searchResults.map((result, index) => (
-                      <div
-                        key={result.id || result.userId || `search-${index}`}
-                        className="flex items-center justify-between p-2 rounded-lg bg-[#18181b] hover:bg-[#27272a] transition-colors"
-                      >
-                        <div 
-                          className="flex items-center gap-2 flex-1 cursor-pointer"
-                          onClick={() => setShowUserProfile(result.id)}
+                    {searchResults.map((result, index) => {
+                      const resolvedUserId = result.userId || result.id;
+                      return (
+                        <div
+                          key={resolvedUserId || `search-${index}`}
+                          className="flex items-center justify-between p-2 rounded-lg bg-[#18181b] hover:bg-[#27272a] transition-colors"
                         >
-                          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                            {result.displayName?.[0] || result.username?.[0] || '?'}
+                          <div 
+                            className="flex items-center gap-2 flex-1 cursor-pointer"
+                            onClick={() => resolvedUserId && setShowUserProfile(resolvedUserId)}
+                          >
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                              {result.displayName?.[0] || result.username?.[0] || '?'}
+                            </div>
+                            <div>
+                              <p className="text-xs text-[#e4e4e7] font-medium">{result.displayName || result.username}</p>
+                              <p className="text-[10px] text-[#71717a]">@{result.username}</p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-xs text-[#e4e4e7] font-medium">{result.displayName || result.username}</p>
-                            <p className="text-[10px] text-[#71717a]">@{result.username}</p>
-                          </div>
+                          <button
+                            onClick={() => handleSendFriendRequest(result)}
+                            className="px-2 py-1 bg-[#818cf8] hover:bg-[#6366f1] text-white text-[10px] rounded transition-colors"
+                          >
+                            Add Friend
+                          </button>
                         </div>
-                        <button
-                          onClick={() => handleSendFriendRequest(result)}
-                          className="px-2 py-1 bg-[#818cf8] hover:bg-[#6366f1] text-white text-[10px] rounded transition-colors"
-                        >
-                          Add Friend
-                        </button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
 

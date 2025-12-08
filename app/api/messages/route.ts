@@ -15,9 +15,19 @@ if (akid && sak) {
 const client = new DynamoDBClient(dynamoConfig);
 
 const docClient = DynamoDBDocumentClient.from(client);
-const MESSAGES_TABLE = 'chatapp-messages';
-const CONVERSATIONS_TABLE = 'chatapp-conversations';
-const USERS_TABLE = 'chatapp-users';
+const MESSAGES_TABLE =
+  process.env.NEXT_PUBLIC_DYNAMODB_MESSAGES_TABLE ||
+  process.env.MESSAGES_TABLE_NAME ||
+  'chatapp-messages';
+const CONVERSATIONS_TABLE =
+  process.env.NEXT_PUBLIC_DYNAMODB_CONVERSATIONS_TABLE ||
+  process.env.CONVERSATIONS_TABLE_NAME ||
+  'chatapp-conversations';
+const USERS_TABLE =
+  process.env.NEXT_PUBLIC_DYNAMODB_USERS_TABLE ||
+  process.env.DYNAMODB_USERS_TABLE ||
+  process.env.USERS_TABLE_NAME ||
+  'chatapp-users';
 
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
