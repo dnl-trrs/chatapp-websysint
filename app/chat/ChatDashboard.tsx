@@ -1065,37 +1065,37 @@ const ChatDashboard: React.FC = () => {
           </h3>
           <div className="space-y-2">
             {selectedConversation ? (
-              // Show conversation participants
               conversations.find(c => c.id === selectedConversation)?.participantDetails?.map((participant: any, index: number) => {
                 const participantId = getParticipantId(participant) || `participant-${index}`;
                 return (
-                <div 
-                  key={participantId}
-                  className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#18181b] transition-all cursor-pointer"
-                  onClick={() => participantId && setShowUserProfile(participantId)}
-                >
-                  <div className="relative">
-                    {participant.photoURL ? (
-                      <Image
-                        src={participant.photoURL}
-                        alt={participant.displayName}
-                        width={32}
-                        height={32}
-                        className="rounded-full"
-                      />
-                    ) : (
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                        {participant.displayName?.[0] || participant.username?.[0] || '?'}
-                      </div>
-                    )}
-                    <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 ${getStatusColor(participant.status)} rounded-full border-2 border-[#18181b]`}></div>
+                  <div 
+                    key={participantId}
+                    className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#18181b] transition-all cursor-pointer"
+                    onClick={() => participantId && setShowUserProfile(participantId)}
+                  >
+                    <div className="relative">
+                      {participant.photoURL ? (
+                        <Image
+                          src={participant.photoURL}
+                          alt={participant.displayName}
+                          width={32}
+                          height={32}
+                          className="rounded-full"
+                        />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                          {participant.displayName?.[0] || participant.username?.[0] || '?'}
+                        </div>
+                      )}
+                      <div className={`absolute -bottom-1 -right-1 w-2.5 h-2.5 ${getStatusColor(participant.status)} rounded-full border-2 border-[#18181b]`}></div>
+                    </div>
+                    <div>
+                      <p className="text-sm text-[#a1a1aa]">{participant.displayName}</p>
+                      <p className="text-xs text-[#71717a]">@{participant.username}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-[#a1a1aa]">{participant.displayName}</p>
-                    <p className="text-xs text-[#71717a]">@{participant.username}</p>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : null}
           </div>
         </div>
