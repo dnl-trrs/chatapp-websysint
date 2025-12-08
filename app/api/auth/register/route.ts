@@ -55,6 +55,50 @@ if (accessKeyId && secretAccessKey) {
 
 const cognitoClient = new CognitoIdentityProviderClient(cognitoClientConfig);
 
+async function writeUserRecord(userId: string, userItem: any) {
+  try {
+    await docClient.send(new PutCommand({
+      TableName: USERS_TABLE,
+      Item: userItem
+    }));
+    const getCommand = new GetCommand({
+      TableName: USERS_TABLE,
+      Key: { userId }
+    });
+    const getResult = await docClient.send(getCommand);
+    return getResult.Item || userItem;
+  } catch (err) {
+    console.error('Primary DynamoDB write failed:', err);
+    return null;
+  }
+}
+
+async function fallbackWriteUserRecord(userId: string, userItem: any) {
+  const apiBase =
+    process.env.NEXT_PUBLIC_API_GATEWAY_URL ||
+    process.env.NEXT_PUBLIC_API_BASE_URL;
+  if (!apiBase) {
+    console.warn('No API gateway URL configured for fallback user write');
+    return null;
+  }
+
+  try {
+    const res = await fetch(`${apiBase}/api/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, ...userItem })
+    });
+    if (!res.ok) {
+      const errPayload = await res.text();
+      throw new Error(`Fallback API response ${res.status}: ${errPayload}`);
+    }
+    return { userId, ...userItem };
+  } catch (error) {
+    console.error('Fallback user write via API gateway failed:', error);
+    return null;
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { email, password, username, displayName } = await request.json();
@@ -108,58 +152,32 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user in DynamoDB with retry
-    let userCreated = false;
-    let userData = null;
-    
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const putCommand = new PutCommand({
-          TableName: USERS_TABLE,
-          Item: {
-            userId,
-            email: trimmedEmail,
-            emailLower,
-            displayName: trimmedDisplayName,
-            displayNameLower,
-            username: normalizedHandle,
-            usernameLower: normalizedHandle,
-            photoURL: '',
-            bio: '',
-            status: 'online',
-            emailVerified: false,
-            createdAt: Date.now(),
-            updatedAt: Date.now()
-          }
-        });
-        await docClient.send(putCommand);
-        
-        // Verify write by reading back
-        const getCommand = new GetCommand({
-          TableName: USERS_TABLE,
-          Key: { userId }
-        });
-        const getResult = await docClient.send(getCommand);
-        userData = getResult.Item;
-        
-        if (userData && userData.displayName && userData.username) {
-          userCreated = true;
-          console.log('User created and verified in DynamoDB:', userData);
-          break;
-        } else {
-          console.warn('User created but fields missing, attempt', attempt + 1);
-          if (attempt === 0) {
-            // Wait before retry
-            await new Promise(resolve => setTimeout(resolve, 300));
-          }
-        }
-      } catch (dbErr: any) {
-        console.error('Error creating user in DynamoDB (attempt ' + (attempt + 1) + '):', dbErr?.code || dbErr);
-        if (attempt === 0 && dbErr?.name === 'ProvisionedThroughputExceededException') {
-          // Retry on throughput error
-          await new Promise(resolve => setTimeout(resolve, 500));
-        }
-      }
+    const baseUserItem = {
+      userId,
+      email: trimmedEmail,
+      emailLower,
+      displayName: trimmedDisplayName,
+      displayNameLower,
+      username: normalizedHandle,
+      usernameLower: normalizedHandle,
+      photoURL: '',
+      bio: '',
+      status: 'online',
+      emailVerified: false,
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    let userData = await writeUserRecord(userId, baseUserItem);
+    if (!userData) {
+      userData = await fallbackWriteUserRecord(userId, baseUserItem);
+    }
+
+    if (!userData) {
+      return NextResponse.json(
+        { error: 'Failed to persist user profile' },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json(
@@ -168,7 +186,7 @@ export async function POST(request: NextRequest) {
         email: trimmedEmail, 
         username: normalizedHandle,
         displayName: trimmedDisplayName,
-        userCreated,
+        userCreated: true,
         userData
       },
       { status: 201 }
