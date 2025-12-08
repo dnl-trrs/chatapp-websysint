@@ -119,9 +119,6 @@ export const getUserConversations = async (
       filtered = conversations.filter((c: any) => c.type === type);
     }
 
-    // Filter out hidden conversations
-    filtered = filtered.filter((c: any) => !c.hiddenBy?.includes(userId));
-
     return filtered.map((c: any) => ({
       id: c.conversationId,
       conversationId: c.conversationId,
