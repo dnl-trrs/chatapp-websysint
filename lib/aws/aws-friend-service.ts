@@ -122,10 +122,17 @@ export const getPendingRequests = async (userId: string): Promise<FriendRequest[
   try {
     const requests = await friendService.getPendingRequests(userId);
     return requests.map((r: any) => ({
-      id: r.requestId,
-      requestId: r.requestId,
+      ...r,
+      id: r.requestId || r.id,
+      requestId: r.requestId || r.id,
       fromUserId: r.fromUserId,
       toUserId: r.toUserId,
+      fromDisplayName: r.fromDisplayName,
+      toDisplayName: r.toDisplayName,
+      fromUsername: r.fromUsername,
+      toUsername: r.toUsername,
+      fromPhotoURL: r.fromPhotoURL,
+      toPhotoURL: r.toPhotoURL,
       status: r.status,
       createdAt: r.createdAt,
       updatedAt: r.updatedAt

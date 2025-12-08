@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import Image from 'next/image';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/Toast';
@@ -16,6 +16,7 @@ import {
 } from '@/lib/aws/aws-friend-service';
 import { createOrGetDMConversation } from '@/lib/aws/aws-conversation-service';
 import UserProfileCard from './UserProfileCard';
+import { userService } from '@/lib/aws/dynamodb-client';
 
 interface FriendsPanelProps {
   isOpen: boolean;
@@ -34,6 +35,145 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
   const [isSearching, setIsSearching] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showUserProfile, setShowUserProfile] = useState<string | null>(null);
+  const [profileCache, setProfileCache] = useState<Record<string, any>>({});
+  const profileCacheRef = useRef<Record<string, any>>({});
+
+  const getOrLoadProfile = useCallback(async (userId?: string | null) => {
+    if (!userId) return null;
+    if (profileCacheRef.current[userId]) {
+      return profileCacheRef.current[userId];
+    }
+    try {
+      const profile = await userService.getUser(userId);
+      if (profile) {
+        profileCacheRef.current = { ...profileCacheRef.current, [userId]: profile };
+        setProfileCache(profileCacheRef.current);
+      }
+      return profile;
+    } catch (error) {
+      console.error('Error loading profile for', userId, error);
+      return null;
+    }
+  }, []);
+
+
+  // Search users
+  useEffect(() => {
+    if (!searchTerm || searchTerm.length < 2 || !user?.uid || activeTab !== 'add') {
+      setSearchResults([]);
+      return;
+    }
+
+    let isCancelled = false;
+
+    const searchUsers = async () => {
+      setIsSearching(true);
+      try {
+        const results = await searchUsersByHandle(searchTerm, user.uid);
+        const friendIds = friends.map(f => f.friendId);
+        const filteredResults = results.filter(r => {
+          const targetId = r.userId || r.id;
+          return targetId ? !friendIds.includes(targetId) : true;
+        });
+        const enrichedResults = await Promise.all(
+          filteredResults.map(async result => {
+            const userId = result.userId || result.id;
+            if (!userId) return result;
+            const profile = await getOrLoadProfile(userId);
+            if (!profile) return result;
+            return {
+              ...result,
+              displayName: result.displayName || profile.displayName,
+              username: result.username || profile.username,
+              photoURL: result.photoURL || profile.photoURL
+            };
+          })
+        );
+        if (!isCancelled) {
+          setSearchResults(enrichedResults);
+        }
+      } catch (error) {
+        console.error('Error searching users:', error);
+        if (!isCancelled) {
+          setSearchResults([]);
+        }
+      } finally {
+        if (!isCancelled) {
+          setIsSearching(false);
+        }
+      }
+    };
+
+    const debounceTimer = setTimeout(searchUsers, 300);
+    return () => {
+      isCancelled = true;
+      clearTimeout(debounceTimer);
+    };
+  }, [searchTerm, user?.uid, friends, activeTab, getOrLoadProfile]);
+
+  const loadFriends = useCallback(async () => {
+    if (!user?.uid) return;
+    setIsLoading(true);
+    try {
+      const userFriends = await getFriends(user.uid);
+      const enrichedFriends = await Promise.all(
+        userFriends.map(async friend => {
+          const targetId = friend.friendId || friend.userId;
+          if (!targetId) return friend;
+          const profile = await getOrLoadProfile(targetId);
+          return {
+            ...friend,
+            displayName: friend.displayName || profile?.displayName || friend.username || 'Unknown User',
+            username: friend.username || profile?.username || friend.displayName || 'user',
+            photoURL: friend.photoURL || profile?.photoURL,
+            status: friend.status || profile?.status || 'offline'
+          };
+        })
+      );
+      setFriends(enrichedFriends);
+    } catch (error) {
+      console.error('Error loading friends:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [user?.uid, getOrLoadProfile]);
+
+  const loadPendingRequests = useCallback(async () => {
+    if (!user?.uid) return;
+    try {
+      const requests = await getPendingRequests(user.uid);
+      const ids = new Set<string>();
+      requests.forEach(req => {
+        if (req.fromUserId && req.fromUserId !== user.uid) ids.add(req.fromUserId);
+        if (req.toUserId && req.toUserId !== user.uid) ids.add(req.toUserId);
+      });
+      const profileMap: Record<string, any> = {};
+      await Promise.all(
+        Array.from(ids).map(async id => {
+          const profile = await getOrLoadProfile(id);
+          if (profile) {
+            profileMap[id] = profile;
+          }
+        })
+      );
+      const enrichedRequests = requests.map(req => {
+        const fromProfile = req.fromUserId ? (profileMap[req.fromUserId] || profileCacheRef.current[req.fromUserId]) : null;
+        const toProfile = req.toUserId ? (profileMap[req.toUserId] || profileCacheRef.current[req.toUserId]) : null;
+        return {
+          ...req,
+          fromDisplayName: req.fromDisplayName || fromProfile?.displayName,
+          toDisplayName: req.toDisplayName || toProfile?.displayName,
+          fromUsername: req.fromUsername || fromProfile?.username,
+          toUsername: req.toUsername || toProfile?.username,
+          fromPhotoURL: req.fromPhotoURL || fromProfile?.photoURL,
+          toPhotoURL: req.toPhotoURL || toProfile?.photoURL
+        };
+      });
+      setPendingRequests(enrichedRequests);
+    } catch (error) {
+      console.error('Error loading pending requests:', error);
+    }
+  }, [user?.uid, getOrLoadProfile]);
 
   // Load friends and pending requests when panel opens with auto-refresh
   useEffect(() => {
@@ -48,68 +188,19 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
       
       return () => clearInterval(interval);
     }
-  }, [isOpen, user?.uid]);
-
-  // Search users
-  useEffect(() => {
-    if (!searchTerm || searchTerm.length < 2 || !user?.uid || activeTab !== 'add') {
-      setSearchResults([]);
-      return;
-    }
-
-    const searchUsers = async () => {
-      setIsSearching(true);
-      try {
-        const results = await searchUsersByHandle(searchTerm, user.uid);
-        // Filter out existing friends
-        const friendIds = friends.map(f => f.friendId);
-        const filteredResults = results.filter(r => !friendIds.includes(r.id));
-        setSearchResults(filteredResults);
-      } catch (error) {
-        console.error('Error searching users:', error);
-      } finally {
-        setIsSearching(false);
-      }
-    };
-
-    const debounceTimer = setTimeout(searchUsers, 300);
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm, user?.uid, friends, activeTab]);
-
-  const loadFriends = async () => {
-    if (!user?.uid) return;
-    setIsLoading(true);
-    try {
-      const userFriends = await getFriends(user.uid);
-      setFriends(userFriends);
-    } catch (error) {
-      console.error('Error loading friends:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadPendingRequests = async () => {
-    if (!user?.uid) return;
-    try {
-      const requests = await getPendingRequests(user.uid);
-      // Show all pending requests (both sent and received)
-      setPendingRequests(requests);
-    } catch (error) {
-      console.error('Error loading pending requests:', error);
-    }
-  };
+  }, [isOpen, user?.uid, loadFriends, loadPendingRequests]);
 
   const handleSendFriendRequest = async (targetUser: any) => {
     if (!user?.uid) return;
     
     try {
       const targetUserId = targetUser.userId || targetUser.id;
+      const cachedProfile = targetUserId ? profileCache[targetUserId] : null;
       await sendFriendRequest(
         user.uid,
         targetUserId,
         user.displayName || 'User',
-        targetUser.displayName || targetUser.username
+        targetUser.displayName || cachedProfile?.displayName || targetUser.username
       );
       showToast('Friend request sent successfully!', 'success');
       setSearchResults(searchResults.filter(r => (r.userId || r.id) !== targetUserId));
@@ -121,8 +212,29 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
   const handleAcceptRequest = async (request: any) => {
     try {
       await acceptFriendRequest(request.requestId || request.id);
-      await loadFriends();
-      await loadPendingRequests();
+      const otherUserId = request.fromUserId === user?.uid ? request.toUserId : request.fromUserId;
+      if (otherUserId) {
+        const profile = await getOrLoadProfile(otherUserId);
+        if (profile) {
+          setFriends(prev => {
+            if (prev.some(f => f.friendId === otherUserId)) return prev;
+            return [
+              ...prev,
+              {
+                userId: profile.userId,
+                friendId: otherUserId,
+                displayName: profile.displayName || request.fromDisplayName || request.toDisplayName,
+                username: profile.username || request.fromUsername || request.toUsername,
+                photoURL: profile.photoURL,
+                status: profile.status || 'offline'
+              }
+            ];
+          });
+        }
+      }
+      setPendingRequests(prev => prev.filter(req => (req.requestId || req.id) !== (request.requestId || request.id)));
+      loadFriends();
+      loadPendingRequests();
       showToast('Friend request accepted!', 'success');
     } catch (error) {
       console.error('Error accepting friend request:', error);
@@ -133,7 +245,8 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
   const handleRejectRequest = async (requestId: string) => {
     try {
       await rejectFriendRequest(requestId);
-      await loadPendingRequests();
+      setPendingRequests(prev => prev.filter(req => (req.requestId || req.id) !== requestId));
+      loadPendingRequests();
     } catch (error) {
       console.error('Error rejecting friend request:', error);
       showToast('Failed to reject friend request', 'error');
@@ -371,8 +484,15 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                     {pendingRequests.map((request, index) => {
                       const isSentRequest = request.fromUserId === user?.uid;
                       const displayUserId = isSentRequest ? request.toUserId : request.fromUserId;
-                      const displayName = isSentRequest ? request.toDisplayName : request.fromDisplayName;
-                      
+                      const cachedProfile = displayUserId ? profileCache[displayUserId] : null;
+                      const displayName =
+                        (isSentRequest ? request.toDisplayName : request.fromDisplayName) ||
+                        cachedProfile?.displayName ||
+                        'Unknown User';
+                      const avatarUrl = isSentRequest
+                        ? request.toPhotoURL || cachedProfile?.photoURL
+                        : request.fromPhotoURL || cachedProfile?.photoURL;
+
                       return (
                         <div
                           key={request.id || request.requestId || `pending-${index}`}
@@ -382,9 +502,19 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                             className="flex items-center gap-2 flex-1 cursor-pointer"
                             onClick={() => setShowUserProfile(displayUserId)}
                           >
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                              {displayName?.[0]?.toUpperCase() || '?'}
-                            </div>
+                            {avatarUrl ? (
+                              <Image
+                                src={avatarUrl}
+                                alt={displayName || 'User'}
+                                width={32}
+                                height={32}
+                                className="rounded-full"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                                {displayName?.[0]?.toUpperCase() || '?'}
+                              </div>
+                            )}
                             <div>
                               <p className="text-xs text-[#e4e4e7] font-medium">{displayName}</p>
                               <p className="text-[10px] text-[#71717a]">
@@ -455,6 +585,9 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                     </p>
                     {searchResults.map((result, index) => {
                       const resolvedUserId = result.userId || result.id;
+                      const cachedProfile = resolvedUserId ? profileCache[resolvedUserId] : null;
+                      const displayName = result.displayName || cachedProfile?.displayName || result.username;
+                      const avatarUrl = result.photoURL || cachedProfile?.photoURL;
                       return (
                         <div
                           key={resolvedUserId || `search-${index}`}
@@ -464,11 +597,21 @@ const FriendsPanel: React.FC<FriendsPanelProps> = ({ isOpen, onClose, onStartCha
                             className="flex items-center gap-2 flex-1 cursor-pointer"
                             onClick={() => resolvedUserId && setShowUserProfile(resolvedUserId)}
                           >
-                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
-                              {result.displayName?.[0] || result.username?.[0] || '?'}
-                            </div>
+                            {avatarUrl ? (
+                              <Image
+                                src={avatarUrl}
+                                alt={displayName}
+                                width={32}
+                                height={32}
+                                className="rounded-full"
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#818cf8] to-[#c084fc] flex items-center justify-center text-white text-xs font-semibold">
+                                {displayName?.[0] || result.username?.[0] || '?'}
+                              </div>
+                            )}
                             <div>
-                              <p className="text-xs text-[#e4e4e7] font-medium">{result.displayName || result.username}</p>
+                              <p className="text-xs text-[#e4e4e7] font-medium">{displayName}</p>
                               <p className="text-[10px] text-[#71717a]">@{result.username}</p>
                             </div>
                           </div>
