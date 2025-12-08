@@ -127,9 +127,7 @@ export async function POST(request: NextRequest) {
     await docClient.send(command);
     
     // Update conversation's last message
-    const participants = conversationData?.participants || [];
-    const hiddenBy = conversationData?.hiddenBy || [];
-    const cleanedHiddenBy = hiddenBy.filter((id: string) => !participants.includes(id));
+    const cleanedHiddenBy: string[] = [];
 
     const updateCommand = new UpdateCommand({
       TableName: CONVERSATIONS_TABLE,

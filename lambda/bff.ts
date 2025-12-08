@@ -308,9 +308,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
         }));
 
         // Update conversation last message
-        const participants = conversationData?.participants || [];
-        const hiddenBy = conversationData?.hiddenBy || [];
-        const cleanedHiddenBy = hiddenBy.filter((id: string) => !participants.includes(id));
+        const cleanedHiddenBy: string[] = [];
 
         await doc.send(new UpdateCommand({
           TableName: CONVERSATIONS_TABLE,

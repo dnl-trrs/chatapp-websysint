@@ -1,21 +1,21 @@
 {
   "version": "38.0.1",
   "files": {
-    "65571f1f7981fbdaa075688b35da47f3b7eb34f9a0decfd281fc6fbc7bae96dd": {
+    "a90661fe746b71c021aec25c84cfbd3690486d2c89d47283f55764a4e534ad6c": {
       "source": {
-        "path": "asset.65571f1f7981fbdaa075688b35da47f3b7eb34f9a0decfd281fc6fbc7bae96dd",
+        "path": "asset.a90661fe746b71c021aec25c84cfbd3690486d2c89d47283f55764a4e534ad6c",
         "packaging": "zip"
       },
       "destinations": {
         "082187380736-us-east-2": {
           "bucketName": "cdk-hnb659fds-assets-082187380736-us-east-2",
-          "objectKey": "65571f1f7981fbdaa075688b35da47f3b7eb34f9a0decfd281fc6fbc7bae96dd.zip",
+          "objectKey": "a90661fe746b71c021aec25c84cfbd3690486d2c89d47283f55764a4e534ad6c.zip",
           "region": "us-east-2",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-file-publishing-role-082187380736-us-east-2"
         }
       }
     },
-    "97353d274330b9099beaeff1a28554d01f2cc492ac2cf3cd98fc9afb58eadb1c": {
+    "3d4c752e74d610110d97c81d5bd78b4b7a487db574845a52bb8537bed2dd2cc1": {
       "source": {
         "path": "ChatAppStack.template.json",
         "packaging": "file"
@@ -23,7 +23,7 @@
       "destinations": {
         "082187380736-us-east-2": {
           "bucketName": "cdk-hnb659fds-assets-082187380736-us-east-2",
-          "objectKey": "97353d274330b9099beaeff1a28554d01f2cc492ac2cf3cd98fc9afb58eadb1c.json",
+          "objectKey": "3d4c752e74d610110d97c81d5bd78b4b7a487db574845a52bb8537bed2dd2cc1.json",
           "region": "us-east-2",
           "assumeRoleArn": "arn:${AWS::Partition}:iam::082187380736:role/cdk-hnb659fds-file-publishing-role-082187380736-us-east-2"
         }
