@@ -75,7 +75,20 @@ export async function GET(request: NextRequest) {
         }
       });
       const result = await docClient.send(command);
-      return NextResponse.json(result.Items || []);
+      const items = result.Items || [];
+
+      const filtered = items.filter((item: any) => {
+        const displayName = (item.displayNameLower ?? item.displayName ?? '').toLowerCase();
+        const username = (item.usernameLower ?? item.username ?? '').toLowerCase();
+        const email = (item.emailLower ?? item.email ?? '').toLowerCase();
+        return (
+          displayName.includes(searchLower) ||
+          username.includes(searchLower) ||
+          email.includes(searchLower)
+        );
+      });
+
+      return NextResponse.json(filtered);
     } else {
       return NextResponse.json({ error: 'Missing parameters' }, { status: 400 });
     }
