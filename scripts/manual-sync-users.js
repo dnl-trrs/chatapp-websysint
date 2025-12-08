@@ -81,9 +81,9 @@ function normalizeHandle(displayName, email) {
   return (base || fallback.toLowerCase()).slice(0, 32);
 }
 
-async function upsertUser(userId, email, displayName, cognitoUsername) {
+async function upsertUser(userId, email, displayName, cognitoUsername, existing = null) {
   const trimmedEmail = (email || '').trim();
-  const trimmedDisplayName = (displayName || trimmedEmail.split('@')[0] || 'User').trim();
+  const trimmedDisplayName = (displayName?.trim?.() || existing?.displayName || trimmedEmail.split('@')[0] || 'User').trim();
   const normalizedHandle = normalizeHandle(trimmedDisplayName, trimmedEmail);
 
   await docClient.send(
@@ -132,7 +132,8 @@ async function main() {
         userId,
         emailAttr?.Value || '',
         nameAttr?.Value || '',
-        cognitoUser.Username
+        cognitoUser.Username,
+        getResult.Item || null
       );
 
       if (getResult.Item) {

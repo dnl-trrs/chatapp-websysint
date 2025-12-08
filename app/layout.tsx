@@ -7,8 +7,8 @@ import { ToastProvider } from "@/components/Toast";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Chat App - Next.js Discord Clone",
-  description: "A modern chat application built with Next.js and Firebase",
+  title: "Chat App",
+  description: "A chat application built with Next.js and AWS",
 };
 
 export default function RootLayout({

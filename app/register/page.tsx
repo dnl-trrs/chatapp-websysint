@@ -64,7 +64,7 @@ export default function RegisterPage() {
             <h2 className="text-2xl font-bold text-[#e4e4e7] mb-1">
               Join <span className="gradient-text">chatapp</span>
             </h2>
-            <p className="text-[#a1a1aa] text-sm">Start connecting with your friends today</p>
+            <p className="text-[#a1a1aa] text-sm">Start connecting with your friends today!</p>
           </div>
           
           {error && (
@@ -176,7 +176,7 @@ export default function RegisterPage() {
             </button>
             
             <p className="text-[#71717a] text-xs text-center">
-              By registering, you agree to our Terms of Service and Privacy Policy
+              By registering, you must confirm your email.
             </p>
           </div>
           
