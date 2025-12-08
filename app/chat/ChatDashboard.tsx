@@ -115,6 +115,22 @@ const ChatDashboard: React.FC = () => {
     }
   };
 
+  const getParticipantId = (participant: any) =>
+    participant?.id || participant?.userId || participant?.uid || null;
+
+  const findOtherParticipant = (participants?: any[]) => {
+    if (!participants?.length) return null;
+    return (
+      participants.find((p) => {
+        const participantId = getParticipantId(p);
+        return participantId && participantId !== user?.uid;
+      }) ||
+      participants.find((p) => (p?.userId || p?.id) !== user?.uid) ||
+      participants[0] ||
+      null
+    );
+  };
+
   const displayName = profile?.displayName || user?.displayName || 'User';
 
   const handleProfilePictureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -620,7 +636,7 @@ const ChatDashboard: React.FC = () => {
                   .filter(convo => convo.type === 'group' || conversationFilter !== 'group')
                   .map(convo => {
                     const otherParticipant = convo.type === 'dm' 
-                      ? convo.participantDetails?.find((p: any) => p.id !== user?.uid)
+                      ? findOtherParticipant(convo.participantDetails)
                       : null;
                     const displayName = convo.type === 'dm' 
                       ? otherParticipant?.displayName || 'Unknown User'
@@ -762,7 +778,7 @@ const ChatDashboard: React.FC = () => {
               (() => {
                 const conversation = conversations.find(c => c.id === selectedConversation);
                 const isDM = conversation?.type === 'dm';
-                const otherParticipant = isDM ? conversation?.participantDetails?.find((p: any) => p.id !== user?.uid) : null;
+                const otherParticipant = isDM ? findOtherParticipant(conversation?.participantDetails) : null;
                 
                 return (
                   <div className="flex items-center justify-between">
@@ -841,7 +857,7 @@ const ChatDashboard: React.FC = () => {
                   (() => {
                     const conversation = conversations.find(c => c.id === selectedConversation);
                     const isDM = conversation?.type === 'dm';
-                    const otherParticipant = isDM ? conversation?.participantDetails?.find((p: any) => p.id !== user?.uid) : null;
+                    const otherParticipant = isDM ? findOtherParticipant(conversation?.participantDetails) : null;
                     
                     return (
                       <div className="border-b border-[#27272a] px-4 py-3 flex items-center justify-between bg-[#18181b]/20">
@@ -883,7 +899,7 @@ const ChatDashboard: React.FC = () => {
                               {(() => {
                                 const conversation = conversations.find(c => c.id === selectedConversation);
                                 if (conversation?.type === 'dm') {
-                                  const otherParticipant = conversation.participantDetails?.find((p: any) => p.id !== user?.uid);
+                                  const otherParticipant = findOtherParticipant(conversation.participantDetails);
                                   return `This is the beginning of your conversation with ${otherParticipant?.displayName || 'this user'}`;
                                 } else {
                                   return `Welcome to ${conversation?.name || 'this group chat'}!`;
@@ -904,7 +920,7 @@ const ChatDashboard: React.FC = () => {
                             
                             // Get user info from participant details or user profiles
                             const conversation = conversations.find(c => c.id === selectedConversation);
-                            const participant = conversation?.participantDetails?.find((p: any) => p.id === msg.uid);
+                            const participant = conversation?.participantDetails?.find((p: any) => getParticipantId(p) === msg.uid);
                             if (participant) {
                               msgDisplayName = participant.displayName || msgDisplayName;
                               photoURL = participant.photoURL || photoURL;
@@ -1006,7 +1022,7 @@ const ChatDashboard: React.FC = () => {
                         placeholder={(() => {
                           const conversation = conversations.find(c => c.id === selectedConversation);
                           if (conversation?.type === 'dm') {
-                            const otherParticipant = conversation.participantDetails?.find((p: any) => p.id !== user?.uid);
+                            const otherParticipant = findOtherParticipant(conversation.participantDetails);
                             return `Message @${otherParticipant?.username || 'user'}`;
                           } else {
                             return `Message ${conversation?.name || 'group'}`;
@@ -1050,11 +1066,13 @@ const ChatDashboard: React.FC = () => {
           <div className="space-y-2">
             {selectedConversation ? (
               // Show conversation participants
-              conversations.find(c => c.id === selectedConversation)?.participantDetails?.map((participant: any, index: number) => (
+              conversations.find(c => c.id === selectedConversation)?.participantDetails?.map((participant: any, index: number) => {
+                const participantId = getParticipantId(participant) || `participant-${index}`;
+                return (
                 <div 
-                  key={participant.id || participant.userId || `participant-${index}`} 
+                  key={participantId}
                   className="flex items-center gap-3 p-2 rounded-lg hover:bg-[#18181b] transition-all cursor-pointer"
-                  onClick={() => setShowUserProfile(participant.id || participant.userId)}
+                  onClick={() => participantId && setShowUserProfile(participantId)}
                 >
                   <div className="relative">
                     {participant.photoURL ? (

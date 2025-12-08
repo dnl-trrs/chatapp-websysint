@@ -359,7 +359,22 @@ export const getConversationWithDetails = async (
     // Get participant details
     const { userService } = await import('./dynamodb-client');
     const participantDetails = await Promise.all(
-      (conversation.participants || []).map((pId: string) => userService.getUser(pId))
+      (conversation.participants || []).map(async (pId: string) => {
+        try {
+          const detail = await userService.getUser(pId);
+          if (!detail) {
+            return null;
+          }
+          return {
+            ...detail,
+            id: detail.userId || detail.id || pId,
+            userId: detail.userId || pId
+          };
+        } catch (err) {
+          console.error('Error fetching participant detail:', err);
+          return null;
+        }
+      })
     );
 
     return {
