@@ -638,6 +638,9 @@ const ChatDashboard: React.FC = () => {
                     const otherParticipant = convo.type === 'dm' 
                       ? findOtherParticipant(convo.participantDetails)
                       : null;
+                    if (convo.type === 'dm' && !otherParticipant) {
+                      return null;
+                    }
                     const displayName = convo.type === 'dm' 
                       ? otherParticipant?.displayName || 'Unknown User'
                       : convo.name || 'Unnamed Group';
