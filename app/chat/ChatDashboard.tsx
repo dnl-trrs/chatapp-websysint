@@ -577,7 +577,11 @@ const ChatDashboard: React.FC = () => {
               Messages
             </h2>
             {(() => {
-              const unreadCount = conversations.filter(c => c.lastMessage && c.lastMessage.senderId !== user?.uid).length;
+              const unreadCount = conversations.filter(c => 
+                c.lastMessage && 
+                c.lastMessage.senderId !== user?.uid &&
+                !c.hiddenBy?.includes(user?.uid || '')
+              ).length;
               return unreadCount > 0 ? (
                 <span className="text-xs bg-[#ef4444]/20 text-[#ef4444] px-2 py-1 rounded-full">
                   {unreadCount}
@@ -627,14 +631,10 @@ const ChatDashboard: React.FC = () => {
             ) : (
               <>
                 {conversations
+                  .filter(convo => !convo.hiddenBy?.includes(user?.uid || ''))
                   .filter(convo => convo.type === 'dm' || conversationFilter !== 'dm')
                   .filter(convo => convo.type === 'group' || conversationFilter !== 'group')
                   .map(convo => {
-                    const isHidden = convo.hiddenBy?.includes(user?.uid || '');
-                    const hasIncomingMessage = convo.lastMessage && convo.lastMessage.senderId !== user?.uid;
-                    if (isHidden && !hasIncomingMessage) {
-                      return null;
-                    }
                     const otherParticipant = convo.type === 'dm' 
                       ? findOtherParticipant(convo.participantDetails)
                       : null;
