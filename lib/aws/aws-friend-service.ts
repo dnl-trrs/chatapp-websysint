@@ -8,6 +8,10 @@ export interface FriendRequest {
   toUserId: string;
   fromDisplayName?: string;
   toDisplayName?: string;
+  fromUsername?: string;
+  toUsername?: string;
+  fromPhotoURL?: string;
+  toPhotoURL?: string;
   status: 'pending' | 'accepted' | 'rejected';
   createdAt: number;
   updatedAt?: number;
