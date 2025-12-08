@@ -196,12 +196,16 @@ export const searchUsersByHandle = async (
   currentUserId: string
 ): Promise<any[]> => {
   try {
-    if (!searchTerm || searchTerm.length < 2) {
+    if (!searchTerm) {
+      return [];
+    }
+    const trimmed = searchTerm.trim().replace(/^@/, '');
+    if (trimmed.length < 2) {
       return [];
     }
 
     const { userService } = await import('./dynamodb-client');
-    const users = await userService.searchUsers(searchTerm);
+    const users = await userService.searchUsers(trimmed);
     return users.filter((u: any) => u.userId !== currentUserId);
   } catch (error) {
     console.error('Error searching users:', error);

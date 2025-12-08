@@ -50,7 +50,13 @@ export async function GET(request: NextRequest) {
       if (!trimmedSearch) {
         return NextResponse.json([], { status: 200 });
       }
-      const searchLower = trimmedSearch.toLowerCase();
+      const normalizedSearch = trimmedSearch.startsWith('@')
+        ? trimmedSearch.slice(1)
+        : trimmedSearch;
+      if (!normalizedSearch) {
+        return NextResponse.json([], { status: 200 });
+      }
+      const searchLower = normalizedSearch.toLowerCase();
       // Search users
       const command = new ScanCommand({
         TableName: USERS_TABLE,
@@ -64,7 +70,7 @@ export async function GET(request: NextRequest) {
           '#usernameLower': 'usernameLower'
         },
         ExpressionAttributeValues: {
-          ':searchOriginal': trimmedSearch,
+          ':searchOriginal': normalizedSearch,
           ':searchLower': searchLower
         }
       });
