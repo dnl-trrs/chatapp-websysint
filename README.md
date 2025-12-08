@@ -1,223 +1,118 @@
-# ChatApp - Real-time Messaging Application
+# ChatApp Web
 
-A modern real-time messaging application built with Next.js and AWS services. This app allows users to communicate through direct messages and group conversations.
+Modern chat client built with **Next.js 16 (App Router)** on top of an AWS-first backend. Users can register, confirm their email with a custom-styled message, find friends, start DM conversations, and exchange messages through DynamoDB-backed APIs.
 
-## Core Features
+---
 
-- **User Authentication**: Register and login with secure credential storage via AWS Cognito
-- **Friend Management**: Send and accept friend requests to build your network
-- **Direct Messaging**: Start 1-on-1 conversations with friends
-- **Group Messaging**: Create group chats with multiple participants (up to 10 users)
-- **Profile Pictures**: Upload and display profile pictures from AWS S3
-- **Persistent Conversations**: Close conversations and return later with message history intact
+## Key Features
+
+- **Cognito authentication** with multi-step register → email confirmation → login flows.
+- **Custom confirmation email** delivered by a Lambda trigger that renders the dark themed HTML template in `lambda/custom-message`.
+- **Friend management** (search, send requests, accept/reject, remove) backed by DynamoDB tables.
+- **Direct messaging** with conversation creation, chat dashboard, conversation drawer, and AWS Conversation Service helpers.
+- **Optimistic UI** for friends and pending requests plus avatar/status caching.
+- **Infrastructure-as-code** (CDK) + AWS Amplify Hosting pipeline, plus helper scripts for syncing stack outputs/SSM parameters.
+
+---
 
 ## Tech Stack
 
-- **Frontend**: Next.js 16, React 19, TypeScript, Tailwind CSS
-- **Backend**: Next.js API routes with AWS SDK
-- **Authentication**: AWS Cognito
-- **Database**: AWS DynamoDB
-- **File Storage**: AWS S3
-- **UI Components**: Lucide React icons, custom components
+| Layer | Technologies |
+| --- | --- |
+| Frontend | Next.js 16, React 18, TypeScript, Tailwind CSS, Turbopack |
+| Auth | Amazon Cognito User Pools (password + confirmation code flow) |
+| Data | Amazon DynamoDB (users, friends, friend-requests, conversations, messages) |
+| Messaging | Next.js API routes calling AWS services, custom Lambda for email styling |
+| Infra / Deploy | AWS CDK (in `infra/`), Amplify Hosting (build via `amplify.yml`), helper Node scripts |
 
-## Prerequisites
-
-- Node.js 18+
-- npm or yarn
-- AWS Account with:
-  - Cognito User Pool configured
-  - DynamoDB tables created
-  - S3 bucket for file uploads
-  - IAM credentials for server-side operations
-
-## Getting Started
-
-### 1. Clone the Repository
-
-```bash
-git clone <repository-url>
-cd chatapp-websysint
-```
-
-### 2. Install Dependencies
-
-```bash
-npm install
-```
-
-### 3. Configure Environment Variables
-
-Create a `.env.local` file in the project root with the following variables:
-
-```env
-# AWS Configuration
-NEXT_PUBLIC_AWS_REGION=us-east-2
-
-# AWS Cognito
-NEXT_PUBLIC_COGNITO_USER_POOL_ID=your-user-pool-id
-NEXT_PUBLIC_COGNITO_CLIENT_ID=your-client-id
-NEXT_PUBLIC_COGNITO_IDENTITY_POOL_ID=your-identity-pool-id
-
-# AWS DynamoDB Tables
-NEXT_PUBLIC_DYNAMODB_USERS_TABLE=chatapp-users
-NEXT_PUBLIC_DYNAMODB_CONVERSATIONS_TABLE=chatapp-conversations
-NEXT_PUBLIC_DYNAMODB_MESSAGES_TABLE=chatapp-messages
-NEXT_PUBLIC_DYNAMODB_FRIENDS_TABLE=chatapp-friends
-NEXT_PUBLIC_DYNAMODB_FRIEND_REQUESTS_TABLE=chatapp-friend-requests
-
-# AWS S3
-NEXT_PUBLIC_S3_BUCKET=your-s3-bucket-name
-
-# Server-side AWS Credentials
-AWS_ACCESS_KEY_ID=your-access-key
-AWS_SECRET_ACCESS_KEY=your-secret-key
-AWS_ACCOUNT_ID=your-account-id
-```
-
-If you deployed the CDK stack, you can keep the local file and AWS Amplify in sync with the outputs produced during deployment:
-
-1. `cd infra && cdk deploy`
-2. Populate AWS Systems Manager Parameter Store with the latest outputs:
-   ```bash
-   node scripts/sync-ssm-from-outputs.js
-   ```
-   The script respects `SSM_BASE_PATH` (default `/chatapp/prod/`) and `SSM_REGION`/`AWS_REGION`.
-3. Generate a local `.env.local` directly from those parameters when developing locally:
-   ```bash
-   node scripts/generate-env-from-ssm.js
-   ```
-4. Configure the same parameters inside the Amplify console (under backend environment variables) by pointing it to the same Parameter Store path.
-
-### 4. Run the Development Server
-
-```bash
-npm run dev
-```
-
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+---
 
 ## Project Structure
 
 ```
-├── app/
-│   ├── api/              # Next.js API routes
-│   │   ├── conversations # Conversation management endpoints
-│   │   ├── friend-requests # Friend request endpoints
-│   │   ├── friends      # Friend list endpoints
-│   │   ├── messages     # Message endpoints
-│   │   ├── upload       # File upload to S3
-│   │   └── users        # User profile endpoints
-│   ├── chat/            # Chat dashboard page
-│   ├── login/           # Login page
-│   ├── register/        # Registration page
-│   └── page.tsx         # Home page
-├── components/          # React components
-│   ├── AuthWrapper      # Authentication wrapper
-│   ├── ChatDashboard    # Main chat interface
-│   ├── FriendsPanel     # Friends list
-│   ├── FriendsModal     # Add friend modal
-│   ├── GroupChatManageModal # Group chat management
-│   ├── ProfileModal     # User profile view
-│   ├── UserProfileCard  # Profile card display
-│   └── Toast            # Notification component
-├── hooks/               # Custom React hooks
-│   ├── useAuth          # Authentication hook
-│   └── useUserProfile   # User profile hook
-├── lib/                 # Utilities and services
-│   ├── aws/             # AWS-specific implementations
-│   ├── conversationService.ts  # Conversation operations
-│   ├── friendService.ts        # Friend operations
-│   ├── profileService.ts       # Profile operations
-│   ├── imageUploadService.ts   # Image uploads
-│   ├── userService.ts          # User operations
-│   └── typingService.ts        # Typing indicators
-└── public/              # Static assets
+app/                    # Next.js routes (register, login, confirm, chat, etc.)
+components/             # UI components (FriendsPanel, UserProfileCard, etc.)
+hooks/                  # React hooks (auth, toast)
+lib/aws/                # Client-side AWS helpers (DynamoDB, conversations, friends)
+scripts/                # Utility scripts for syncing users/SSM parameters
+infra/                  # CDK stacks for backend resources
+lambda/custom-message/  # Cognito custom message Lambda + HTML template
+emails/                 # Reference copy of confirmation email template
 ```
 
-## Database Schema
+---
 
-### Users Table
-- `userId` (PK): User's unique identifier
-- `email`: User's email address
-- `displayName`: User's display name
-- `username`: Unique username for finding users
-- `photoURL`: S3 URL to profile picture
-- `createdAt`: Account creation timestamp
-- `updatedAt`: Last profile update timestamp
-- `status`: Online/offline status
+## Environment & Configuration
 
-### Conversations Table
-- `conversationId` (PK): Unique conversation identifier
-- `type`: "dm" or "group"
-- `participants`: List of user IDs in the conversation
-- `name`: Group chat name (optional)
-- `icon`: S3 URL to group photo (optional)
-- `createdAt`: Conversation creation time
-- `updatedAt`: Last update time
-- `createdBy`: Creator's user ID
-- `hiddenBy`: List of users who hid this conversation
+1. Copy the sample env file:
+   ```bash
+   cp .env.example .env.local
+   ```
+2. Fill in the Cognito IDs, DynamoDB table names, API endpoints, S3 buckets, etc. You can also run `node scripts/generate-env-from-ssm.js` to pull parameters from AWS SSM (requires AWS credentials with read access).
+3. Required tooling:
+   - Node.js 20.x + npm 10+
+   - AWS CLI configured for the target account
+   - CDK CLI (`npm install -g aws-cdk`) if you plan to deploy infra from `infra/`.
 
-### Messages Table
-- `messageId` (PK): Unique message identifier
-- `conversationId` (SK): Conversation this message belongs to
-- `senderId`: User who sent the message
-- `content`: Message text
-- `timestamp`: When message was sent
-- `readBy`: List of users who read the message
-- `editedAt`: Last edit timestamp (optional)
+---
 
-### Friends Table
-- `userId` (PK): User ID
-- `friendId` (SK): Friend's user ID
-- `createdAt`: When friendship was established
-- `displayName`: Friend's display name
-- `photoURL`: Friend's profile picture URL
-
-### Friend Requests Table
-- `requestId` (PK): Unique request identifier
-- `fromUserId`: User sending the request
-- `toUserId`: User receiving the request
-- `status`: "pending", "accepted", or "rejected"
-- `createdAt`: When request was sent
-- `updatedAt`: Last status change
-
-## API Endpoints
-
-### Authentication
-- `POST /api/users/register` - Register new user
-- `POST /api/users/login` - User login
-
-### Conversations
-- `GET /api/conversations?userId=<id>` - Get user's conversations
-- `POST /api/conversations` - Create new conversation
-- `GET /api/conversations/<id>` - Get conversation details
-
-### Messages
-- `GET /api/messages?conversationId=<id>` - Get conversation messages
-- `POST /api/messages` - Send a message
-- `GET /api/messages/<id>` - Get message details
-
-### Friends
-- `GET /api/friends?userId=<id>` - Get user's friends
-- `POST /api/friends` - Add friend
-- `DELETE /api/friends` - Remove friend
-
-### Friend Requests
-- `GET /api/friend-requests?userId=<id>` - Get pending requests
-- `POST /api/friend-requests` - Send friend request
-- `PUT /api/friend-requests/<id>` - Accept/reject request
-- `DELETE /api/friend-requests/<id>` - Delete request
-
-### File Upload
-- `POST /api/upload` - Upload file to S3
-
-## Building for Production
+## Development
 
 ```bash
-npm run build
-npm start
+npm install
+npm run dev            # starts Next.js on http://localhost:3000
+npm run lint           # optional linting
+npm run build          # production build (also used by Amplify)
 ```
 
-## License
+When running locally the app uses the values in `.env.local`. For cloud builds, Amplify runs `node scripts/generate-env-from-ssm.js` (see `amplify.yml`) to hydrate `.env.local` from SSM.
 
-This project is proprietary and confidential.
+---
+
+## AWS Helper Scripts
+
+| Script | Purpose |
+| --- | --- |
+| `node scripts/generate-env-from-ssm.js` | Reads `/amplify/<appId>/<env>/` parameters from AWS SSM Parameter Store and writes `.env.local`. |
+| `node scripts/sync-ssm-from-outputs.js` | Pushes the latest CDK stack outputs (Cognito IDs, DynamoDB table names, etc.) into SSM so Amplify and local builds stay in sync. Run after `cdk deploy`. |
+| `node scripts/manual-sync-users.js` | One-time backfill that synchronizes existing Cognito users into the DynamoDB `chatapp-users` table. Only use when explicitly needed; registration normally writes users automatically. |
+
+---
+
+## Deployment Workflow
+
+1. **Provision/update infrastructure**
+   ```bash
+   cd infra
+   npm install
+   npx cdk deploy --all
+   cd ..
+   ```
+2. **Sync stack outputs to SSM**
+   ```bash
+   node scripts/sync-ssm-from-outputs.js
+   ```
+3. **Update the custom email Lambda (if template changed)**
+   ```bash
+   cd lambda/custom-message
+   Compress-Archive -Path index.mjs,confirm-email.html -DestinationPath ../chatapp-custom-message.zip -Force
+   # Upload the zip via Lambda console or AWS CLI, ensuring handler = index.handler
+   ```
+4. **Deploy frontend via Amplify Hosting**
+   - Push to the `Final` branch (Amplify is configured via `amplify.yml` to run `npm ci`, generate env from SSM, and `npm run build`).
+   - Monitor the Amplify build logs for success/failures.
+
+---
+
+## Custom Confirmation Email
+
+The HTML template lives in `lambda/custom-message/confirm-email.html` (with a reference copy in `emails/`). The Lambda handler (`lambda/custom-message/index.mjs`) reads the template, replaces tokens like `{{displayName}}` and `{{####CODE####}}`, and populates `event.response.emailMessage`. Attach this Lambda as the **Custom message** trigger inside your Cognito User Pool to ensure every signup receives the styled email.
+
+---
+
+## Troubleshooting
+
+- **USER_PASSWORD_AUTH flow not enabled**: ensure your Cognito App Client has “Allow user password auth” enabled.
+- **Missing display names / avatars**: run the app after the DynamoDB tables are populated; the profile cache (`FriendsPanel.tsx`) fetches from `/api/users`.
+- **Conversation stuck / missing after close**: refresh `app/chat/ChatDashboard.tsx` logic or clear the `conversations` DynamoDB table.
+- **Custom email not sent**: check CloudWatch logs for the `chatapp-custom-message` Lambda; ensure the handler file is at the root of the uploaded zip and Handler is set to `index.handler`.
